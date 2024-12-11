@@ -4,95 +4,36 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Builder;
 
 class Business extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<string>
-     */
     protected $fillable = [
-        'user_id',
         'name',
         'slug',
         'description',
         'logo',
-        'is_single_location',
-        'contact_info',
-        'business_hours',
-        'settings',
+        'cover_image',
+        'email',
+        'phone',
+        'website',
         'status',
-        'verified_at',
+        'is_verified',
+        'settings',
+        'business_hours',
+        'social_links',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
-        'is_single_location' => 'boolean',
-        'contact_info' => 'array',
-        'business_hours' => 'array',
+        'is_verified' => 'boolean',
         'settings' => 'array',
-        'verified_at' => 'datetime',
+        'business_hours' => 'array',
+        'social_links' => 'array',
     ];
-
-    /**
-     * The attributes that should be mutated to dates.
-     *
-     * @var array<string>
-     */
-    protected $dates = [
-        'verified_at',
-    ];
-
-    /**
-     * Boot the model.
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($business) {
-            if (empty($business->slug)) {
-                $business->slug = Str::slug($business->name);
-            }
-        });
-
-        // When creating a single-location business, automatically create a venue
-        static::created(function ($business) {
-            if ($business->is_single_location) {
-                $business->venues()->create([
-                    'name' => $business->name,
-                    'slug' => $business->slug,
-                    'description' => $business->description,
-                    'address' => fake()->address(),
-                    'latitude' => fake()->latitude(),
-                    'longitude' => fake()->longitude(),
-                    'contact_info' => $business->contact_info,
-                    'business_hours' => $business->business_hours,
-                ]);
-            }
-        });
-    }
-
-    /**
-     * Get the owner of the business.
-     */
-    public function owner(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'user_id');
-    }
 
     /**
      * Get all venues for the business.
@@ -103,18 +44,15 @@ class Business extends Model
     }
 
     /**
-     * Get the primary venue for single-location businesses.
+     * Get the primary venue for the business.
      */
     public function primaryVenue(): HasOne
     {
-        return $this->hasOne(Venue::class)
-            ->when($this->is_single_location, function ($query) {
-                return $query->oldest();
-            });
+        return $this->hasOne(Venue::class)->where('is_primary', true);
     }
 
     /**
-     * Get all services offered by the business.
+     * Get all services for the business.
      */
     public function services(): HasMany
     {
@@ -122,76 +60,19 @@ class Business extends Model
     }
 
     /**
-     * Get active services offered by the business.
+     * Get the categories for the business.
      */
-    public function activeServices(): HasMany
+    public function categories()
     {
-        return $this->services()->where('status', 'active');
+        return $this->belongsToMany(Category::class);
     }
 
     /**
-     * Get all staff members of the business.
+     * Get the business's address through the primary venue.
      */
-    public function staff(): HasManyThrough
+    public function getAddressAttribute()
     {
-        return $this->hasManyThrough(
-            User::class,
-            'service_staff',
-            'business_id',
-            'id',
-            'id',
-            'user_id'
-        )->distinct();
-    }
-
-    /**
-     * Get active staff members of the business.
-     */
-    public function activeStaff(): HasManyThrough
-    {
-        return $this->staff()
-            ->where('service_staff.status', 'active');
-    }
-
-    /**
-     * Get the business's address (for single-location businesses).
-     */
-    public function getAddressAttribute(): ?string
-    {
-        return $this->is_single_location 
-            ? $this->primaryVenue?->address 
-            : null;
-    }
-
-    /**
-     * Get the business's coordinates (for single-location businesses).
-     */
-    public function getCoordinatesAttribute(): ?array
-    {
-        if (!$this->is_single_location || !$this->primaryVenue) {
-            return null;
-        }
-
-        return [
-            'latitude' => $this->primaryVenue->latitude,
-            'longitude' => $this->primaryVenue->longitude,
-        ];
-    }
-
-    /**
-     * Scope a query to only include verified businesses.
-     */
-    public function scopeVerified($query)
-    {
-        return $query->whereNotNull('verified_at');
-    }
-
-    /**
-     * Scope a query to only include active businesses.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'active');
+        return $this->primaryVenue?->full_address;
     }
 
     /**
@@ -199,57 +80,49 @@ class Business extends Model
      */
     public function isVerified(): bool
     {
-        return !is_null($this->verified_at);
+        return $this->is_verified;
     }
 
     /**
-     * Check if the business is active.
+     * Scope a query to only include active businesses.
      */
-    public function isActive(): bool
+    public function scopeActive(Builder $query): void
     {
-        return $this->status === 'active';
+        $query->where('status', 'active');
     }
 
     /**
-     * Get a setting value.
+     * Scope a query to only include verified businesses.
      */
-    public function getSetting(string $key, $default = null)
+    public function scopeVerified(Builder $query): void
     {
-        return data_get($this->settings, $key, $default);
+        $query->where('is_verified', true);
     }
 
     /**
-     * Set a setting value.
+     * Scope a query to only include businesses in a specific category.
      */
-    public function setSetting(string $key, $value): self
+    public function scopeInCategory(Builder $query, $category): void
     {
-        $settings = $this->settings ?? [];
-        data_set($settings, $key, $value);
-        $this->settings = $settings;
-        return $this;
+        $query->whereHas('categories', function ($query) use ($category) {
+            $query->where('categories.id', $category instanceof Category ? $category->id : $category);
+        });
     }
 
     /**
-     * Get the business's contact info.
+     * Scope a query to search businesses.
      */
-    public function getContactInfoAttribute($value): ?array
+    public function scopeSearch(Builder $query, string $search): void
     {
-        return is_string($value) ? json_decode($value, true) : $value;
-    }
-
-    /**
-     * Get the business's hours.
-     */
-    public function getBusinessHoursAttribute($value): ?array
-    {
-        return is_string($value) ? json_decode($value, true) : $value;
-    }
-
-    /**
-     * Get the business's settings.
-     */
-    public function getSettingsAttribute($value): ?array
-    {
-        return is_string($value) ? json_decode($value, true) : $value;
+        $query->where(function ($query) use ($search) {
+            $query->where('name', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%")
+                ->orWhereHas('categories', function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%");
+                })
+                ->orWhereHas('services', function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%");
+                });
+        });
     }
 } 
