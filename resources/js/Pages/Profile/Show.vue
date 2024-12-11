@@ -16,41 +16,56 @@ defineProps({
 <template>
     <AppLayout title="Profile">
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Profile
-            </h2>
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">
+                    Profile Settings
+                </h2>
+                <div class="tabs tabs-boxed">
+                    <a class="tab tab-active">General</a>
+                    <a class="tab">Security</a>
+                    <a class="tab">Sessions</a>
+                </div>
+            </div>
         </template>
 
-        <div>
-            <div class="max-w-7xl mx-auto py-10 sm:px-6 lg:px-8">
-                <div v-if="$page.props.jetstream.canUpdateProfileInformation">
-                    <UpdateProfileInformationForm :user="$page.props.auth.user" />
-
-                    <SectionBorder />
+        <div class="py-10">
+            <div class="max-w-4xl mx-auto">
+                <!-- Profile Information -->
+                <div v-if="$page.props.jetstream.canUpdateProfileInformation" class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <UpdateProfileInformationForm :user="$page.props.auth.user" />
+                    </div>
                 </div>
 
-                <div v-if="$page.props.jetstream.canUpdatePassword">
-                    <UpdatePasswordForm class="mt-10 sm:mt-0" />
-
-                    <SectionBorder />
+                <!-- Password Update -->
+                <div v-if="$page.props.jetstream.canUpdatePassword" class="card bg-base-100 shadow-xl mt-8">
+                    <div class="card-body">
+                        <UpdatePasswordForm />
+                    </div>
                 </div>
 
-                <div v-if="$page.props.jetstream.canManageTwoFactorAuthentication">
-                    <TwoFactorAuthenticationForm
-                        :requires-confirmation="confirmsTwoFactorAuthentication"
-                        class="mt-10 sm:mt-0"
-                    />
-
-                    <SectionBorder />
+                <!-- Two Factor Authentication -->
+                <div v-if="$page.props.jetstream.canManageTwoFactorAuthentication" class="card bg-base-100 shadow-xl mt-8">
+                    <div class="card-body">
+                        <TwoFactorAuthenticationForm
+                            :requires-confirmation="confirmsTwoFactorAuthentication"
+                        />
+                    </div>
                 </div>
 
-                <LogoutOtherBrowserSessionsForm :sessions="sessions" class="mt-10 sm:mt-0" />
+                <!-- Browser Sessions -->
+                <div class="card bg-base-100 shadow-xl mt-8">
+                    <div class="card-body">
+                        <LogoutOtherBrowserSessionsForm :sessions="sessions" />
+                    </div>
+                </div>
 
-                <template v-if="$page.props.jetstream.hasAccountDeletionFeatures">
-                    <SectionBorder />
-
-                    <DeleteUserForm class="mt-10 sm:mt-0" />
-                </template>
+                <!-- Delete Account -->
+                <div v-if="$page.props.jetstream.hasAccountDeletionFeatures" class="card bg-base-100 shadow-xl mt-8">
+                    <div class="card-body">
+                        <DeleteUserForm />
+                    </div>
+                </div>
             </div>
         </div>
     </AppLayout>
