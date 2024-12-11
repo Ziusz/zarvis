@@ -1,9 +1,16 @@
 <script setup>
 import SectionTitle from './SectionTitle.vue';
+
+defineProps({
+    variant: {
+        type: String,
+        default: 'bordered' // bordered, glass, normal
+    }
+});
 </script>
 
 <template>
-    <div class="md:grid md:grid-cols-3 md:gap-6">
+    <div class="w-full">
         <SectionTitle>
             <template #title>
                 <slot name="title" />
@@ -13,9 +20,16 @@ import SectionTitle from './SectionTitle.vue';
             </template>
         </SectionTitle>
 
-        <div class="mt-5 md:mt-0 md:col-span-2">
-            <div class="px-4 py-5 sm:p-6 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
-                <slot name="content" />
+        <div class="mt-5">
+            <div :class="[
+                'card',
+                'bg-base-100',
+                `card-${variant}`,
+                'w-full'
+            ]">
+                <div class="card-body">
+                    <slot name="content" />
+                </div>
             </div>
         </div>
     </div>

@@ -12,25 +12,39 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    size: {
+        type: String,
+        default: 'md', // lg, md, sm, xs
+    },
+    color: {
+        type: String,
+        default: 'primary', // primary, secondary, accent, success, warning, info, error
+    }
 });
 
 const proxyChecked = computed({
     get() {
         return props.checked;
     },
-
     set(val) {
         emit('update:checked', val);
     },
 });
-</script>
 
+const checkboxClasses = computed(() => {
+    return [
+        'checkbox',
+        `checkbox-${props.color}`,
+        props.size !== 'md' && `checkbox-${props.size}`,
+    ].filter(Boolean);
+});
+</script>
 
 <template>
     <input
         v-model="proxyChecked"
         type="checkbox"
         :value="value"
-        class="rounded dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800"
+        :class="checkboxClasses"
     >
 </template>

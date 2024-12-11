@@ -8,9 +8,9 @@ defineProps({
         type: Boolean,
         default: false,
     },
-    maxWidth: {
+    size: {
         type: String,
-        default: '2xl',
+        default: 'md',
     },
     closeable: {
         type: Boolean,
@@ -26,22 +26,34 @@ const close = () => {
 <template>
     <Modal
         :show="show"
-        :max-width="maxWidth"
+        :size="size"
         :closeable="closeable"
         @close="close"
     >
-        <div class="px-6 py-4">
-            <div class="text-lg font-medium text-gray-900 dark:text-gray-100">
+        <div class="modal-header">
+            <h3 class="font-bold text-lg">
                 <slot name="title" />
-            </div>
-
-            <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
-                <slot name="content" />
-            </div>
+            </h3>
         </div>
 
-        <div class="flex flex-row justify-end px-6 py-4 bg-gray-100 dark:bg-gray-800 text-end">
+        <div class="modal-body py-4">
+            <slot name="content" />
+        </div>
+
+        <div class="modal-action">
             <slot name="footer" />
         </div>
     </Modal>
 </template>
+
+<style scoped>
+.modal-header {
+    @apply mb-4 pr-6;
+}
+.modal-body {
+    @apply text-sm;
+}
+.modal-action {
+    @apply mt-6;
+}
+</style>

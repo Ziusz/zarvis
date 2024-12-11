@@ -1,7 +1,22 @@
+<script setup>
+defineProps({
+    vertical: {
+        type: Boolean,
+        default: false
+    },
+    color: {
+        type: String,
+        default: 'base-200'
+    }
+});
+</script>
+
 <template>
-    <div class="hidden sm:block">
-        <div class="py-8">
-            <div class="border-t border-gray-200 dark:border-gray-700" />
-        </div>
-    </div>
+    <div 
+        :class="[
+            'divider',
+            vertical ? 'divider-horizontal' : 'divider-vertical',
+            `bg-${color}`
+        ]"
+    />
 </template>
