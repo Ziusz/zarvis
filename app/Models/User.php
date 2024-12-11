@@ -2,23 +2,18 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Jetstream\HasProfilePhoto;
-use Laravel\Jetstream\HasTeams;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     use HasApiTokens;
-
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory;
     use HasProfilePhoto;
-    use HasTeams;
     use Notifiable;
     use TwoFactorAuthenticatable;
 
@@ -31,6 +26,13 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'phone',
+        'specialties',
+        'experience',
+        'languages',
+        'average_rating',
+        'reviews_count',
     ];
 
     /**
@@ -46,6 +48,18 @@ class User extends Authenticatable
     ];
 
     /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'specialties' => 'array',
+        'languages' => 'array',
+        'average_rating' => 'decimal:2',
+    ];
+
+    /**
      * The accessors to append to the model's array form.
      *
      * @var array<int, string>
@@ -55,15 +69,65 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Get the staff availabilities for the user.
      */
-    protected function casts(): array
+    public function staffAvailabilities()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        return $this->hasMany(StaffAvailability::class);
+    }
+
+    /**
+     * Get the services that the staff member can provide.
+     */
+    public function services()
+    {
+        return $this->belongsToMany(Service::class, 'service_staff')
+            ->withPivot(['venue_id', 'settings', 'status'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the bookings where the user is the staff member.
+     */
+    public function staffBookings()
+    {
+        return $this->hasMany(Booking::class, 'staff_id');
+    }
+
+    /**
+     * Get the bookings made by the user.
+     */
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    /**
+     * Check if the user is a staff member.
+     */
+    public function isStaff(): bool
+    {
+        return $this->role === 'staff';
+    }
+
+    /**
+     * Get the next available time slot for the staff member.
+     */
+    public function getNextAvailableAttribute()
+    {
+        $nextAvailable = $this->staffAvailabilities()
+            ->where('date', '>=', now()->format('Y-m-d'))
+            ->where('is_available', true)
+            ->where('status', 'available')
+            ->orderBy('date')
+            ->orderBy('start_time')
+            ->first();
+
+        if (!$nextAvailable) {
+            return null;
+        }
+
+        return $nextAvailable->date->format('M j') . ' at ' . 
+            Carbon::parse($nextAvailable->start_time)->format('g:i A');
     }
 }
