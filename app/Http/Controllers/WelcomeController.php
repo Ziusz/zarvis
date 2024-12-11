@@ -51,6 +51,7 @@ class WelcomeController extends Controller
                     'description' => $business->description,
                     'logo' => $business->logo,
                     'is_verified' => $business->isVerified(),
+                    'verified_at' => $business->verified_at,
                     'services_count' => $business->services_count,
                     'venues_count' => $business->venues_count,
                     'address' => $business->address,

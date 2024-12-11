@@ -52,6 +52,7 @@ class BusinessController extends Controller
                 'website' => $business->website,
                 'address' => $business->address,
                 'is_verified' => $business->isVerified(),
+                'verified_at' => $business->verified_at,
                 'business_hours' => $business->business_hours,
                 'social_links' => $business->social_links,
                 'categories' => $business->categories->map(fn ($category) => [

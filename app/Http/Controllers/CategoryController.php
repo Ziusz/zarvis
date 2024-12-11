@@ -52,6 +52,7 @@ class CategoryController extends Controller
                 'description' => $business->description,
                 'logo' => $business->logo,
                 'is_verified' => $business->isVerified(),
+                'verified_at' => $business->verified_at,
                 'services_count' => $business->services_count,
                 'address' => $business->address,
                 'categories' => $business->categories->map(fn ($category) => [

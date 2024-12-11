@@ -22,17 +22,17 @@ class Business extends Model
         'phone',
         'website',
         'status',
-        'is_verified',
+        'verified_at',
         'settings',
         'business_hours',
         'social_links',
     ];
 
     protected $casts = [
-        'is_verified' => 'boolean',
         'settings' => 'array',
         'business_hours' => 'array',
         'social_links' => 'array',
+        'verified_at' => 'datetime',
     ];
 
     /**
@@ -80,7 +80,7 @@ class Business extends Model
      */
     public function isVerified(): bool
     {
-        return $this->is_verified;
+        return !is_null($this->verified_at);
     }
 
     /**
@@ -96,7 +96,7 @@ class Business extends Model
      */
     public function scopeVerified(Builder $query): void
     {
-        $query->where('is_verified', true);
+        $query->whereNotNull('verified_at');
     }
 
     /**

@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Business;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -19,25 +18,20 @@ class BusinessFactory extends Factory
      */
     public function definition(): array
     {
-        $name = $this->faker->company();
-        $businessTypes = ['Studio', 'Center', 'Club', 'Academy', 'School'];
+        $name = fake()->company();
         
         return [
             'user_id' => User::factory(),
-            'name' => $name . ' ' . $this->faker->randomElement($businessTypes),
+            'name' => $name,
             'slug' => Str::slug($name),
-            'description' => $this->faker->paragraph(),
-            'logo' => $this->faker->imageUrl(200, 200, 'business'),
-            'is_single_location' => $this->faker->boolean(70), // 70% chance of single location
-            'contact_info' => [
-                'phone' => $this->faker->phoneNumber(),
-                'email' => $this->faker->companyEmail(),
-                'website' => $this->faker->url(),
-                'social' => [
-                    'facebook' => 'https://facebook.com/' . $this->faker->userName(),
-                    'instagram' => 'https://instagram.com/' . $this->faker->userName(),
-                ],
-            ],
+            'description' => fake()->paragraph(),
+            'logo' => fake()->imageUrl(200, 200, 'business'),
+            'cover_image' => fake()->imageUrl(1200, 400, 'business'),
+            'email' => fake()->companyEmail(),
+            'phone' => fake()->phoneNumber(),
+            'website' => fake()->url(),
+            'is_single_location' => fake()->boolean(70), // 70% chance of single location
+            'status' => 'active',
             'business_hours' => [
                 'monday' => ['09:00', '18:00'],
                 'tuesday' => ['09:00', '18:00'],
@@ -45,60 +39,22 @@ class BusinessFactory extends Factory
                 'thursday' => ['09:00', '18:00'],
                 'friday' => ['09:00', '18:00'],
                 'saturday' => ['10:00', '16:00'],
-                'sunday' => null, // closed
+                'sunday' => null,
             ],
             'settings' => [
-                'booking_advance_days' => $this->faker->numberBetween(1, 30),
-                'cancellation_policy' => $this->faker->randomElement(['24h', '48h', '72h']),
+                'booking_advance_days' => fake()->numberBetween(1, 30),
+                'cancellation_policy' => '48h',
                 'notification_preferences' => [
                     'email' => true,
-                    'sms' => $this->faker->boolean(),
-                    'push' => $this->faker->boolean(),
+                    'sms' => true,
+                    'push' => true,
                 ],
             ],
-            'status' => $this->faker->randomElement(['pending', 'active', 'suspended']),
-            'verified_at' => $this->faker->boolean(80) ? $this->faker->dateTimeBetween('-1 year') : null,
+            'social_links' => [
+                'facebook' => fake()->url(),
+                'instagram' => fake()->url(),
+                'twitter' => fake()->url(),
+            ],
         ];
-    }
-
-    /**
-     * Indicate that the business is verified.
-     */
-    public function verified(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'verified_at' => now(),
-            'status' => 'active',
-        ]);
-    }
-
-    /**
-     * Indicate that the business is active.
-     */
-    public function active(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'status' => 'active',
-        ]);
-    }
-
-    /**
-     * Indicate that the business has a single location.
-     */
-    public function singleLocation(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'is_single_location' => true,
-        ]);
-    }
-
-    /**
-     * Indicate that the business has multiple locations.
-     */
-    public function multiLocation(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'is_single_location' => false,
-        ]);
     }
 } 

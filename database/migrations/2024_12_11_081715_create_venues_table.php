@@ -14,22 +14,20 @@ return new class extends Migration
         Schema::create('venues', function (Blueprint $table) {
             $table->id();
             $table->foreignId('business_id')->constrained()->onDelete('cascade');
-            $table->string('name')->nullable();
-            $table->string('slug')->nullable();
+            $table->string('name');
+            $table->string('slug')->unique();
             $table->text('description')->nullable();
             $table->string('address');
             $table->decimal('latitude', 10, 8)->nullable();
             $table->decimal('longitude', 11, 8)->nullable();
-            $table->json('contact_info')->nullable();
-            $table->json('business_hours')->nullable();
-            $table->json('images')->nullable();
-            $table->json('amenities')->nullable();
-            $table->enum('status', ['active', 'inactive'])->default('active');
+            $table->jsonb('contact_info')->nullable();
+            $table->jsonb('business_hours')->nullable();
+            $table->jsonb('images')->nullable();
+            $table->jsonb('amenities')->nullable();
+            $table->string('status')->default('active');
+            $table->boolean('is_primary')->default(false);
             $table->timestamps();
             $table->softDeletes();
-
-            // Add unique constraint for business_id + slug for multi-location businesses
-            $table->unique(['business_id', 'slug']);
         });
     }
 
