@@ -1,5 +1,6 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
+import GuestLayout from '@/Layouts/GuestLayout.vue';
 
 defineProps({
     canLogin: {
@@ -12,9 +13,7 @@ defineProps({
 </script>
 
 <template>
-    <Head title="Welcome" />
-
-    <div class="min-h-screen bg-base-200">
+    <GuestLayout title="Welcome">
         <!-- Hero Section -->
         <div class="hero min-h-[70vh] bg-base-100">
             <div class="hero-content flex-col lg:flex-row-reverse gap-8">
@@ -129,5 +128,5 @@ defineProps({
                 </div>
             </nav>
         </footer>
-    </div>
+    </GuestLayout>
 </template>
