@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Business;
 use App\Models\Category;
 use App\Models\Service;
+use App\Models\User;
 use App\Models\Venue;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -16,6 +17,12 @@ class BusinessSeeder extends Seeder
      */
     public function run(): void
     {
+        // Create staff members first
+        $staffMembers = User::factory()
+            ->count(50)
+            ->staff()
+            ->create();
+
         // Get all categories
         $categories = Category::all();
 
@@ -29,7 +36,7 @@ class BusinessSeeder extends Seeder
                 'is_featured' => rand(0, 4) === 0, // 20% chance of being featured
             ])
             ->create()
-            ->each(function ($business) use ($categories) {
+            ->each(function ($business) use ($categories, $staffMembers) {
                 // Attach 1-3 random categories
                 $business->categories()->attach(
                     $categories->random(rand(1, 3))->pluck('id')->toArray()
@@ -80,6 +87,17 @@ class BusinessSeeder extends Seeder
                         ]) . ' - ' . fake()->word() . ' ' . Str::random(4),
                     ])
                     ->create();
+
+                // Assign 2-5 random staff members to the business
+                $business->staffMembers()->attach(
+                    $staffMembers->random(rand(2, 5))->pluck('id')->toArray(),
+                    [
+                        'role' => 'staff',
+                        'specialties' => json_encode(['Personal Training', 'Group Fitness']),
+                        'experience' => 'Over 5 years of experience',
+                        'languages' => json_encode(['English', 'Spanish']),
+                    ]
+                );
             });
     }
 } 

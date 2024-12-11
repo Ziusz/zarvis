@@ -1,143 +1,112 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { StarIcon } from '@heroicons/vue/20/solid';
+import { ref, watch } from 'vue';
 
 const props = defineProps({
+    modelValue: {
+        type: Object,
+        default: null,
+    },
     staff: {
         type: Array,
-        required: true
+        default: () => [],
     },
-    selectedStaffId: {
-        type: Number,
-        default: null
-    },
-    loading: {
-        type: Boolean,
-        default: false
-    }
 });
 
-const emit = defineEmits(['select']);
+const emit = defineEmits(['update:modelValue']);
 
-const selectStaff = (staffMember) => {
-    emit('select', staffMember.id);
-};
+const selectedStaff = ref(props.modelValue);
 
-const getStaffCardClass = (staffMember) => {
-    return {
-        'ring-2 ring-primary': props.selectedStaffId === staffMember.id,
-        'hover:shadow-xl': props.selectedStaffId !== staffMember.id
-    };
-};
+watch(() => props.modelValue, (newValue) => {
+    selectedStaff.value = newValue;
+});
 
-const getRatingColor = (rating) => {
-    if (rating >= 4.5) return 'text-success';
-    if (rating >= 4.0) return 'text-warning';
-    return 'text-base-content/70';
+watch(selectedStaff, (newValue) => {
+    emit('update:modelValue', newValue);
+});
+
+const selectStaff = (staff) => {
+    selectedStaff.value = selectedStaff.value?.id === staff.id ? null : staff;
 };
 </script>
 
 <template>
-    <div class="space-y-6">
-        <!-- Loading State -->
-        <div v-if="loading" class="flex justify-center items-center min-h-[200px]">
-            <span class="loading loading-spinner loading-lg text-primary"></span>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- No Preference Option -->
+        <div 
+            class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
+            :class="{ 'ring-2 ring-primary': !selectedStaff }"
+            @click="selectStaff(null)"
+        >
+            <div class="card-body">
+                <div class="flex items-center gap-4">
+                    <div class="avatar placeholder">
+                        <div class="w-16 rounded-full bg-neutral-focus text-neutral-content">
+                            <span class="text-2xl">?</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg">No Preference</h3>
+                        <p class="text-sm opacity-70">Any available staff member</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <template v-else>
-            <!-- Staff Grid -->
-            <div v-if="staff.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div v-for="member in staff" :key="member.id"
-                    class="card bg-base-100 shadow-md transition-all duration-300 cursor-pointer"
-                    :class="getStaffCardClass(member)"
-                    @click="selectStaff(member)"
-                >
-                    <div class="card-body">
-                        <!-- Staff Header -->
-                        <div class="flex items-start gap-4">
-                            <div class="avatar">
-                                <div class="w-16 h-16 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-                                    <img :src="member.avatar" :alt="member.name">
-                                </div>
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="card-title">{{ member.name }}</h3>
-                                <p class="text-sm text-base-content/70">{{ member.role }}</p>
-                                
-                                <!-- Rating -->
-                                <div class="flex items-center gap-1 mt-1">
-                                    <div class="rating rating-sm">
-                                        <template v-for="i in 5" :key="i">
-                                            <input 
-                                                type="radio" 
-                                                :class="['mask mask-star-2', getRatingColor(member.rating)]"
-                                                :checked="Math.round(member.rating) === i"
-                                                disabled
-                                            />
-                                        </template>
-                                    </div>
-                                    <span class="text-sm text-base-content/70">
-                                        ({{ member.reviews_count }} reviews)
-                                    </span>
-                                </div>
-                            </div>
+        <!-- Staff Members -->
+        <div 
+            v-for="member in staff"
+            :key="member.id"
+            class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
+            :class="{ 'ring-2 ring-primary': selectedStaff?.id === member.id }"
+            @click="selectStaff(member)"
+        >
+            <div class="card-body">
+                <div class="flex items-center gap-4">
+                    <div class="avatar">
+                        <div class="w-16 rounded-full">
+                            <img 
+                                :src="member.profile_photo_url" 
+                                :alt="member.name"
+                                class="object-cover"
+                            />
                         </div>
-
-                        <!-- Specialties -->
-                        <div class="mt-4">
-                            <h4 class="font-semibold text-sm mb-2">Specialties</h4>
-                            <div class="flex flex-wrap gap-2">
-                                <span v-for="specialty in member.specialties" :key="specialty"
-                                    class="badge badge-outline"
-                                >
-                                    {{ specialty }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Experience -->
-                        <div class="mt-4">
-                            <h4 class="font-semibold text-sm mb-2">Experience</h4>
-                            <p class="text-sm text-base-content/70">{{ member.experience }}</p>
-                        </div>
-
-                        <!-- Languages -->
-                        <div v-if="member.languages?.length" class="mt-4">
-                            <h4 class="font-semibold text-sm mb-2">Languages</h4>
-                            <div class="flex flex-wrap gap-2">
-                                <span v-for="language in member.languages" :key="language"
-                                    class="badge badge-ghost"
-                                >
-                                    {{ language }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Next Available -->
-                        <div class="mt-4 flex items-center justify-between">
-                            <span class="text-sm text-base-content/70">Next Available</span>
-                            <span class="text-sm font-medium">{{ member.next_available }}</span>
-                        </div>
-
-                        <!-- Selection Button -->
-                        <div class="card-actions justify-end mt-4">
-                            <button 
-                                class="btn btn-primary btn-sm"
-                                :class="{ 'btn-outline': props.selectedStaffId !== member.id }"
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg">{{ member.name }}</h3>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            <div 
+                                v-for="specialty in member.specialties?.slice(0, 2)"
+                                :key="specialty"
+                                class="badge badge-sm"
                             >
-                                {{ props.selectedStaffId === member.id ? 'Selected' : 'Select' }}
-                            </button>
+                                {{ specialty }}
+                            </div>
+                            <div 
+                                v-if="member.specialties?.length > 2"
+                                class="badge badge-sm"
+                            >
+                                +{{ member.specialties.length - 2 }}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 mt-2 text-sm text-base-content/70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                            </svg>
+                            {{ member.average_rating }} ({{ member.reviews_count }})
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- No Staff Available -->
-            <div v-else class="text-center py-8">
-                <div class="text-3xl mb-2">😔</div>
-                <h4 class="text-lg font-semibold">No Staff Available</h4>
-                <p class="text-base-content/70">Please try selecting a different time slot.</p>
-            </div>
-        </template>
+        <!-- No Staff Available -->
+        <div 
+            v-if="staff.length === 0"
+            class="col-span-full text-center py-8"
+        >
+            <div class="text-3xl mb-2">😢</div>
+            <h4 class="text-lg font-semibold">No Staff Available</h4>
+            <p class="text-base-content/70">Please try selecting a different time slot.</p>
+        </div>
     </div>
 </template> 

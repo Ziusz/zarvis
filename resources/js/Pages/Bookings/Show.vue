@@ -2,7 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { formatCurrency, formatDate, formatTime, formatDuration } from '@/utils';
+import { formatCurrency, formatDate, formatTime, formatDuration } from '@/utils.js';
 
 const props = defineProps({
     booking: {

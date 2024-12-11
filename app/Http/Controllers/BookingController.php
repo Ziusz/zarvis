@@ -2,16 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Booking;
 use App\Models\Business;
 use App\Models\Service;
+use App\Models\Booking;
 use App\Models\TimeSlot;
-use App\Models\User;
 use Carbon\Carbon;
-use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class BookingController extends Controller
@@ -21,16 +17,10 @@ class BookingController extends Controller
      */
     public function create(Business $business, Service $service)
     {
-        // Check if service belongs to business
+        // Check if the service belongs to the business
         if ($service->business_id !== $business->id) {
             abort(404);
         }
-
-        // Get available dates (next 14 days)
-        $dates = collect(CarbonPeriod::create(
-            now()->startOfDay(),
-            now()->addDays(14)->endOfDay()
-        ))->map(fn ($date) => $date->format('Y-m-d'));
 
         return Inertia::render('Bookings/Create', [
             'business' => [
@@ -42,20 +32,14 @@ class BookingController extends Controller
             'service' => [
                 'id' => $service->id,
                 'name' => $service->name,
+                'slug' => $service->slug,
                 'description' => $service->description,
                 'duration' => $service->duration,
                 'price' => $service->price,
                 'capacity' => $service->capacity,
+                'images' => $service->images,
+                'settings' => $service->settings,
             ],
-            'venues' => $business->venues()
-                ->active()
-                ->get()
-                ->map(fn ($venue) => [
-                    'id' => $venue->id,
-                    'name' => $venue->name,
-                    'address' => $venue->address,
-                ]),
-            'dates' => $dates,
         ]);
     }
 
@@ -66,50 +50,39 @@ class BookingController extends Controller
     {
         $request->validate([
             'business_id' => 'required|exists:businesses,id',
-            'venue_id' => 'required|exists:venues,id',
             'service_id' => 'required|exists:services,id',
             'date' => 'required|date|after_or_equal:today',
+            'staff_id' => 'nullable|exists:users,id',
         ]);
 
-        $date = Carbon::parse($request->date);
-        $service = Service::findOrFail($request->service_id);
-
-        // Get business hours for the day
         $business = Business::findOrFail($request->business_id);
-        $businessHours = $business->business_hours[strtolower($date->format('l'))] ?? null;
+        $service = Service::findOrFail($request->service_id);
+        $date = Carbon::parse($request->date)->startOfDay();
+        
+        $query = TimeSlot::where('business_id', $business->id)
+            ->where('service_id', $service->id)
+            ->whereDate('date', $date)
+            ->available()
+            ->orderBy('start_time');
 
-        if (!$businessHours) {
-            return response()->json([]);
+        if ($request->staff_id) {
+            $query->where('staff_id', $request->staff_id);
         }
 
-        // Generate time slots based on service duration
-        $slots = [];
-        $startTime = Carbon::parse($businessHours[0]);
-        $endTime = Carbon::parse($businessHours[1]);
+        $timeSlots = $query->get()->map(fn ($slot) => [
+            'id' => $slot->id,
+            'start_time' => $slot->start_time->format('H:i'),
+            'end_time' => $slot->end_time->format('H:i'),
+            'capacity' => $slot->capacity,
+            'booked' => $slot->booked,
+            'is_available' => $slot->isAvailable(),
+            'remaining_capacity' => $slot->getRemainingCapacity(),
+        ]);
 
-        while ($startTime->copy()->addMinutes($service->duration) <= $endTime) {
-            $endSlot = $startTime->copy()->addMinutes($service->duration);
-            
-            // Check if slot is available
-            $isAvailable = TimeSlot::where('date', $date->format('Y-m-d'))
-                ->where('start_time', $startTime->format('H:i:s'))
-                ->where('service_id', $service->id)
-                ->where('venue_id', $request->venue_id)
-                ->where('is_available', true)
-                ->where('status', 'available')
-                ->exists();
-
-            $slots[] = [
-                'id' => $startTime->format('H:i'),
-                'start_time' => $startTime->format('H:i'),
-                'end_time' => $endSlot->format('H:i'),
-                'is_available' => $isAvailable,
-            ];
-
-            $startTime->addMinutes($service->duration);
-        }
-
-        return response()->json($slots);
+        return response()->json([
+            'timeSlots' => $timeSlots,
+            'date' => $date->toDateString(),
+        ]);
     }
 
     /**
@@ -119,44 +92,61 @@ class BookingController extends Controller
     {
         $request->validate([
             'business_id' => 'required|exists:businesses,id',
-            'venue_id' => 'required|exists:venues,id',
             'service_id' => 'required|exists:services,id',
             'date' => 'required|date|after_or_equal:today',
-            'time_slot' => 'required|array',
-            'time_slot.start_time' => 'required|date_format:H:i',
-            'time_slot.end_time' => 'required|date_format:H:i|after:time_slot.start_time',
+            'time_slot_id' => 'required|exists:time_slots,id',
         ]);
 
-        $date = Carbon::parse($request->date);
-        $startTime = Carbon::parse($request->time_slot['start_time']);
-        $endTime = Carbon::parse($request->time_slot['end_time']);
+        $business = Business::findOrFail($request->business_id);
+        $service = Service::findOrFail($request->service_id);
+        $timeSlot = TimeSlot::findOrFail($request->time_slot_id);
+        
+        // First, try to get the staff member assigned to this time slot
+        if ($timeSlot->staff_id) {
+            $assignedStaff = $business->staffMembers()
+                ->where('users.id', $timeSlot->staff_id)
+                ->first();
 
-        // Get available staff members
-        $availableStaff = User::whereHas('staffAvailabilities', function ($query) use ($date, $startTime, $endTime, $request) {
-            $query->where('date', $date->format('Y-m-d'))
-                ->where('venue_id', $request->venue_id)
-                ->where('is_available', true)
-                ->where('status', 'available')
-                ->where('start_time', '<=', $startTime->format('H:i:s'))
-                ->where('end_time', '>=', $endTime->format('H:i:s'));
-        })->whereHas('services', function ($query) use ($request) {
-            $query->where('services.id', $request->service_id)
-                ->where('venue_id', $request->venue_id)
-                ->where('status', 'active');
-        })->get();
+            if ($assignedStaff) {
+                return response()->json([
+                    'staff' => [[
+                        'id' => $assignedStaff->id,
+                        'name' => $assignedStaff->name,
+                        'profile_photo_url' => $assignedStaff->profile_photo_url,
+                        'specialties' => $assignedStaff->specialties,
+                        'experience' => $assignedStaff->experience,
+                        'languages' => $assignedStaff->languages,
+                        'average_rating' => $assignedStaff->average_rating,
+                        'reviews_count' => $assignedStaff->reviews_count,
+                    ]],
+                ]);
+            }
+        }
 
-        return response()->json($availableStaff->map(fn ($staff) => [
-            'id' => $staff->id,
-            'name' => $staff->name,
-            'avatar' => $staff->profile_photo_url,
-            'role' => $staff->role,
-            'rating' => $staff->average_rating,
-            'reviews_count' => $staff->reviews_count,
-            'specialties' => $staff->specialties,
-            'experience' => $staff->experience,
-            'languages' => $staff->languages,
-            'next_available' => $staff->next_available,
-        ]));
+        // If no assigned staff or they're not available, get all available staff
+        $staff = $business->staffMembers()
+            ->whereHas('staffAvailabilities', function ($query) use ($timeSlot) {
+                $query->where('date', $timeSlot->date)
+                    ->where('is_available', true)
+                    ->where('status', 'available')
+                    ->whereTime('start_time', '<=', $timeSlot->start_time)
+                    ->whereTime('end_time', '>=', $timeSlot->end_time);
+            })
+            ->get()
+            ->map(fn ($staff) => [
+                'id' => $staff->id,
+                'name' => $staff->name,
+                'profile_photo_url' => $staff->profile_photo_url,
+                'specialties' => $staff->specialties,
+                'experience' => $staff->experience,
+                'languages' => $staff->languages,
+                'average_rating' => $staff->average_rating,
+                'reviews_count' => $staff->reviews_count,
+            ]);
+
+        return response()->json([
+            'staff' => $staff,
+        ]);
     }
 
     /**
@@ -167,89 +157,60 @@ class BookingController extends Controller
         $request->validate([
             'business_id' => 'required|exists:businesses,id',
             'service_id' => 'required|exists:services,id',
-            'venue_id' => 'required|exists:venues,id',
-            'staff_id' => 'required|exists:users,id',
-            'date' => 'required|date|after_or_equal:today',
-            'time_slot' => 'required|array',
-            'time_slot.start_time' => 'required|date_format:H:i',
-            'time_slot.end_time' => 'required|date_format:H:i|after:time_slot.start_time',
+            'time_slot_id' => 'required|exists:time_slots,id',
+            'staff_id' => 'nullable|exists:users,id',
             'participants' => 'required|integer|min:1',
-            'notes' => 'nullable|string|max:1000',
         ]);
 
+        $business = Business::findOrFail($request->business_id);
         $service = Service::findOrFail($request->service_id);
-        
-        // Validate participants count
-        if ($request->participants > $service->capacity) {
-            throw ValidationException::withMessages([
-                'participants' => ['The number of participants exceeds the service capacity.'],
-            ]);
+        $timeSlot = TimeSlot::findOrFail($request->time_slot_id);
+
+        // Check if the time slot is still available
+        if (!$timeSlot->isAvailable() || $timeSlot->getRemainingCapacity() < $request->participants) {
+            return response()->json([
+                'message' => 'This time slot is no longer available.',
+            ], 422);
         }
 
-        // Check if slot is still available
-        $startTime = Carbon::parse($request->date . ' ' . $request->time_slot['start_time']);
-        $endTime = Carbon::parse($request->date . ' ' . $request->time_slot['end_time']);
+        // Create the booking
+        $booking = Booking::create([
+            'user_id' => auth()->id(),
+            'business_id' => $business->id,
+            'venue_id' => $timeSlot->venue_id,
+            'service_id' => $service->id,
+            'staff_id' => $request->staff_id ?? $timeSlot->staff_id,
+            'start_time' => Carbon::parse($timeSlot->date)->setTimeFromTimeString($timeSlot->start_time),
+            'end_time' => Carbon::parse($timeSlot->date)->setTimeFromTimeString($timeSlot->end_time),
+            'participants' => $request->participants,
+            'total_price' => $service->price * $request->participants,
+            'status' => 'pending',
+            'payment_status' => 'pending',
+            'customer_details' => [
+                'name' => auth()->user()->name,
+                'email' => auth()->user()->email,
+                'phone' => auth()->user()->phone,
+            ],
+            'service_details' => [
+                'name' => $service->name,
+                'duration' => $service->duration,
+                'price' => $service->price,
+            ],
+        ]);
 
-        $isAvailable = TimeSlot::where('date', $request->date)
-            ->where('start_time', $startTime->format('H:i:s'))
-            ->where('service_id', $service->id)
-            ->where('venue_id', $request->venue_id)
-            ->where('is_available', true)
-            ->where('status', 'available')
-            ->exists();
+        // Update time slot availability
+        $timeSlot->booked += $request->participants;
+        $timeSlot->status = $timeSlot->booked >= $timeSlot->capacity ? 'fully-booked' : 'available';
+        $timeSlot->save();
 
-        if (!$isAvailable) {
-            throw ValidationException::withMessages([
-                'time_slot' => ['This time slot is no longer available.'],
-            ]);
-        }
-
-        // Create booking
-        DB::beginTransaction();
-        try {
-            $booking = Booking::create([
-                'user_id' => auth()->id(),
-                'business_id' => $request->business_id,
-                'venue_id' => $request->venue_id,
-                'service_id' => $request->service_id,
-                'staff_id' => $request->staff_id,
-                'start_time' => $startTime,
-                'end_time' => $endTime,
-                'participants' => $request->participants,
-                'total_price' => $service->price * $request->participants,
-                'status' => 'pending',
-                'payment_status' => 'pending',
-                'notes' => $request->notes,
-                'customer_details' => [
-                    'name' => auth()->user()->name,
-                    'email' => auth()->user()->email,
-                    'phone' => auth()->user()->phone,
-                ],
-                'service_details' => [
-                    'name' => $service->name,
-                    'duration' => $service->duration,
-                    'price' => $service->price,
-                ],
-            ]);
-
-            // Update time slot availability
-            TimeSlot::where('date', $request->date)
-                ->where('start_time', $startTime->format('H:i:s'))
-                ->where('service_id', $service->id)
-                ->where('venue_id', $request->venue_id)
-                ->update([
-                    'booked' => DB::raw('booked + ' . $request->participants),
-                    'status' => DB::raw('CASE WHEN (booked + ' . $request->participants . ') >= capacity THEN \'fully-booked\' ELSE status END'),
-                ]);
-
-            DB::commit();
-
-            return redirect()->route('bookings.show', $booking)
-                ->with('success', 'Booking created successfully!');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        return response()->json([
+            'booking' => [
+                'id' => $booking->id,
+                'status' => $booking->status,
+                'start_time' => $booking->start_time,
+                'total_price' => $booking->total_price,
+            ],
+        ]);
     }
 
     /**
@@ -257,10 +218,13 @@ class BookingController extends Controller
      */
     public function show(Booking $booking)
     {
-        // Ensure user can only view their own bookings
+        // Check if the user owns this booking
         if ($booking->user_id !== auth()->id()) {
             abort(403);
         }
+
+        // Load the relationships
+        $booking->load(['business', 'venue', 'staff', 'service']);
 
         return Inertia::render('Bookings/Show', [
             'booking' => [
@@ -269,14 +233,26 @@ class BookingController extends Controller
                 'status_label' => $booking->status_label,
                 'payment_status' => $booking->payment_status,
                 'payment_status_label' => $booking->payment_status_label,
-                'payment_method' => $booking->payment_method,
-                'total_price' => $booking->total_price,
-                'participants' => $booking->participants,
-                'notes' => $booking->notes,
                 'start_time' => $booking->start_time,
                 'end_time' => $booking->end_time,
+                'participants' => $booking->participants,
+                'total_price' => $booking->total_price,
+                'customer_details' => $booking->customer_details,
+                'service_details' => $booking->service_details,
+                'notes' => $booking->notes,
                 'can_be_cancelled' => $booking->canBeCancelled(),
                 'can_be_rescheduled' => $booking->canBeRescheduled(),
+                'business' => [
+                    'id' => $booking->business->id,
+                    'name' => $booking->business->name,
+                    'slug' => $booking->business->slug,
+                    'logo' => $booking->business->logo,
+                ],
+                'venue' => [
+                    'id' => $booking->venue->id,
+                    'name' => $booking->venue->name,
+                    'address' => $booking->venue->address,
+                ],
                 'service' => [
                     'id' => $booking->service->id,
                     'name' => $booking->service->name,
@@ -284,20 +260,10 @@ class BookingController extends Controller
                     'duration' => $booking->service->duration,
                     'price' => $booking->service->price,
                 ],
-                'business' => [
-                    'id' => $booking->business->id,
-                    'name' => $booking->business->name,
-                    'slug' => $booking->business->slug,
-                ],
-                'venue' => [
-                    'id' => $booking->venue->id,
-                    'name' => $booking->venue->name,
-                    'address' => $booking->venue->address,
-                ],
                 'staff' => $booking->staff ? [
                     'id' => $booking->staff->id,
                     'name' => $booking->staff->name,
-                    'avatar' => $booking->staff->profile_photo_url,
+                    'profile_photo_url' => $booking->staff->profile_photo_url,
                     'role' => $booking->staff->role,
                 ] : null,
             ],
@@ -307,50 +273,42 @@ class BookingController extends Controller
     /**
      * Cancel the specified booking.
      */
-    public function cancel(Request $request, Booking $booking)
+    public function cancel(Booking $booking)
     {
-        // Ensure user can only cancel their own bookings
+        // Check if the user owns this booking
         if ($booking->user_id !== auth()->id()) {
             abort(403);
         }
 
-        // Ensure booking can be cancelled
+        // Check if the booking can be cancelled
         if (!$booking->canBeCancelled()) {
-            throw ValidationException::withMessages([
-                'booking' => ['This booking cannot be cancelled.'],
-            ]);
+            return response()->json([
+                'message' => 'This booking cannot be cancelled.',
+            ], 422);
         }
 
-        $request->validate([
-            'reason' => 'required|string|max:1000',
+        // Update booking status
+        $booking->update([
+            'status' => 'cancelled',
+            'cancelled_at' => now(),
         ]);
 
-        DB::beginTransaction();
-        try {
-            // Update booking status
-            $booking->update([
-                'status' => 'cancelled',
-                'cancellation_reason' => $request->reason,
-                'cancelled_at' => now(),
-            ]);
+        // Free up the time slot
+        $timeSlot = TimeSlot::where([
+            'business_id' => $booking->business_id,
+            'venue_id' => $booking->venue_id,
+            'service_id' => $booking->service_id,
+            'date' => $booking->start_time->format('Y-m-d'),
+            'start_time' => $booking->start_time->format('H:i:s'),
+        ])->first();
 
-            // Update time slot availability
-            TimeSlot::where('date', $booking->start_time->format('Y-m-d'))
-                ->where('start_time', $booking->start_time->format('H:i:s'))
-                ->where('service_id', $booking->service_id)
-                ->where('venue_id', $booking->venue_id)
-                ->update([
-                    'booked' => DB::raw('booked - ' . $booking->participants),
-                    'status' => 'available',
-                ]);
-
-            DB::commit();
-
-            return back()->with('success', 'Booking cancelled successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
+        if ($timeSlot) {
+            $timeSlot->booked -= $booking->participants;
+            $timeSlot->status = 'available';
+            $timeSlot->save();
         }
+
+        return back();
     }
 
     /**
@@ -358,65 +316,59 @@ class BookingController extends Controller
      */
     public function reschedule(Request $request, Booking $booking)
     {
-        // Ensure user can only reschedule their own bookings
+        // Check if the user owns this booking
         if ($booking->user_id !== auth()->id()) {
             abort(403);
         }
 
-        // Ensure booking can be rescheduled
+        // Check if the booking can be rescheduled
         if (!$booking->canBeRescheduled()) {
-            throw ValidationException::withMessages([
-                'booking' => ['This booking cannot be rescheduled.'],
-            ]);
+            return response()->json([
+                'message' => 'This booking cannot be rescheduled.',
+            ], 422);
         }
 
         $request->validate([
-            'date' => 'required|date|after_or_equal:today',
-            'time_slot' => 'required|array',
-            'time_slot.start_time' => 'required|date_format:H:i',
-            'time_slot.end_time' => 'required|date_format:H:i|after:time_slot.start_time',
-            'staff_id' => 'required|exists:users,id',
+            'time_slot_id' => 'required|exists:time_slots,id',
+            'staff_id' => 'nullable|exists:users,id',
         ]);
 
-        $startTime = Carbon::parse($request->date . ' ' . $request->time_slot['start_time']);
-        $endTime = Carbon::parse($request->date . ' ' . $request->time_slot['end_time']);
+        $newTimeSlot = TimeSlot::findOrFail($request->time_slot_id);
 
-        DB::beginTransaction();
-        try {
-            // Free up old time slot
-            TimeSlot::where('date', $booking->start_time->format('Y-m-d'))
-                ->where('start_time', $booking->start_time->format('H:i:s'))
-                ->where('service_id', $booking->service_id)
-                ->where('venue_id', $booking->venue_id)
-                ->update([
-                    'booked' => DB::raw('booked - ' . $booking->participants),
-                    'status' => 'available',
-                ]);
-
-            // Update booking
-            $booking->update([
-                'start_time' => $startTime,
-                'end_time' => $endTime,
-                'staff_id' => $request->staff_id,
-            ]);
-
-            // Update new time slot
-            TimeSlot::where('date', $request->date)
-                ->where('start_time', $startTime->format('H:i:s'))
-                ->where('service_id', $booking->service_id)
-                ->where('venue_id', $booking->venue_id)
-                ->update([
-                    'booked' => DB::raw('booked + ' . $booking->participants),
-                    'status' => DB::raw('CASE WHEN (booked + ' . $booking->participants . ') >= capacity THEN \'fully-booked\' ELSE status END'),
-                ]);
-
-            DB::commit();
-
-            return redirect()->route('bookings.show', $booking)
-                ->with('success', 'Booking rescheduled successfully!');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
+        // Check if the new time slot is available
+        if (!$newTimeSlot->isAvailable() || $newTimeSlot->getRemainingCapacity() < $booking->participants) {
+            return response()->json([
+                'message' => 'The selected time slot is not available.',
+            ], 422);
         }
+
+        // Free up the old time slot
+        $oldTimeSlot = TimeSlot::where([
+            'business_id' => $booking->business_id,
+            'venue_id' => $booking->venue_id,
+            'service_id' => $booking->service_id,
+            'date' => $booking->start_time->format('Y-m-d'),
+            'start_time' => $booking->start_time->format('H:i:s'),
+        ])->first();
+
+        if ($oldTimeSlot) {
+            $oldTimeSlot->booked -= $booking->participants;
+            $oldTimeSlot->status = 'available';
+            $oldTimeSlot->save();
+        }
+
+        // Update the booking
+        $booking->update([
+            'staff_id' => $request->staff_id ?? $newTimeSlot->staff_id,
+            'start_time' => Carbon::parse($newTimeSlot->date)->setTimeFromTimeString($newTimeSlot->start_time),
+            'end_time' => Carbon::parse($newTimeSlot->date)->setTimeFromTimeString($newTimeSlot->end_time),
+        ]);
+
+        // Update the new time slot
+        $newTimeSlot->booked += $booking->participants;
+        $newTimeSlot->status = $newTimeSlot->booked >= $newTimeSlot->capacity ? 'fully-booked' : 'available';
+        $newTimeSlot->save();
+
+        return back();
     }
 }

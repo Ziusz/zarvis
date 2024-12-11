@@ -1,4 +1,20 @@
 /**
+ * Format a time string to a human-readable format
+ * @param {string} time - The time string to format (HH:mm or HH:mm:ss)
+ * @param {object} options - Intl.DateTimeFormat options
+ * @returns {string} The formatted time string
+ */
+export function formatTime(time, options = {}) {
+    // Create a date object with a dummy date (2000-01-01) to parse the time
+    const date = new Date(`2000-01-01T${time}`);
+    return date.toLocaleTimeString([], { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        ...options
+    });
+}
+
+/**
  * Format a number as currency
  * @param {number} amount - The amount to format
  * @param {string} [currency='USD'] - The currency code

@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 class Business extends Model
 {
@@ -21,58 +24,39 @@ class Business extends Model
         'email',
         'phone',
         'website',
-        'status',
-        'verified_at',
-        'settings',
         'business_hours',
         'social_links',
+        'settings',
+        'verified_at',
     ];
 
     protected $casts = [
-        'settings' => 'array',
         'business_hours' => 'array',
         'social_links' => 'array',
+        'settings' => 'array',
         'verified_at' => 'datetime',
     ];
 
     /**
-     * Get all venues for the business.
+     * Get the route key for the model.
      */
-    public function venues(): HasMany
+    public function getRouteKeyName(): string
     {
-        return $this->hasMany(Venue::class);
+        return 'slug';
     }
 
     /**
-     * Get the primary venue for the business.
+     * Boot the model.
      */
-    public function primaryVenue(): HasOne
+    protected static function boot()
     {
-        return $this->hasOne(Venue::class)->where('is_primary', true);
-    }
+        parent::boot();
 
-    /**
-     * Get all services for the business.
-     */
-    public function services(): HasMany
-    {
-        return $this->hasMany(Service::class);
-    }
-
-    /**
-     * Get the categories for the business.
-     */
-    public function categories()
-    {
-        return $this->belongsToMany(Category::class);
-    }
-
-    /**
-     * Get the business's address through the primary venue.
-     */
-    public function getAddressAttribute()
-    {
-        return $this->primaryVenue?->full_address;
+        static::creating(function ($business) {
+            if (!$business->slug) {
+                $business->slug = Str::slug($business->name);
+            }
+        });
     }
 
     /**
@@ -100,29 +84,68 @@ class Business extends Model
     }
 
     /**
-     * Scope a query to only include businesses in a specific category.
+     * Get the primary venue for the business.
      */
-    public function scopeInCategory(Builder $query, $category): void
+    public function primaryVenue(): HasOne
     {
-        $query->whereHas('categories', function ($query) use ($category) {
-            $query->where('categories.id', $category instanceof Category ? $category->id : $category);
-        });
+        return $this->hasOne(Venue::class)->where('is_primary', true);
     }
 
     /**
-     * Scope a query to search businesses.
+     * Get all venues for the business.
      */
-    public function scopeSearch(Builder $query, string $search): void
+    public function venues(): HasMany
     {
-        $query->where(function ($query) use ($search) {
-            $query->where('name', 'like', "%{$search}%")
-                ->orWhere('description', 'like', "%{$search}%")
-                ->orWhereHas('categories', function ($query) use ($search) {
-                    $query->where('name', 'like', "%{$search}%");
-                })
-                ->orWhereHas('services', function ($query) use ($search) {
-                    $query->where('name', 'like', "%{$search}%");
-                });
-        });
+        return $this->hasMany(Venue::class);
+    }
+
+    /**
+     * Get all services for the business.
+     */
+    public function services(): HasMany
+    {
+        return $this->hasMany(Service::class);
+    }
+
+    /**
+     * Get all categories for the business.
+     */
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class);
+    }
+
+    /**
+     * Get all staff members for the business.
+     */
+    public function staffMembers()
+    {
+        return $this->belongsToMany(User::class, 'business_staff')
+            ->withPivot(['role', 'specialties', 'experience', 'languages'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get all bookings for the business.
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    /**
+     * Get all time slots for the business.
+     */
+    public function timeSlots(): HasMany
+    {
+        return $this->hasMany(TimeSlot::class);
+    }
+
+    /**
+     * Get all staff availabilities for the business.
+     */
+    public function staffAvailabilities(): HasMany
+    {
+        return $this->hasMany(StaffAvailability::class);
     }
 } 

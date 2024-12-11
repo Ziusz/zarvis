@@ -5,13 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class Service extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     /**
      * The attributes that are mass assignable.
@@ -29,7 +28,6 @@ class Service extends Model
         'capacity',
         'images',
         'settings',
-        'status',
     ];
 
     /**
@@ -46,6 +44,14 @@ class Service extends Model
     ];
 
     /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    /**
      * Boot the model.
      */
     protected static function boot()
@@ -53,21 +59,8 @@ class Service extends Model
         parent::boot();
 
         static::creating(function ($service) {
-            if (empty($service->slug)) {
+            if (!$service->slug) {
                 $service->slug = Str::slug($service->name);
-            }
-        });
-
-        // When creating a service for a single-location business,
-        // automatically attach it to the primary venue
-        static::created(function ($service) {
-            if ($service->business->is_single_location) {
-                $service->venues()->attach($service->business->primaryVenue->id, [
-                    'price' => $service->price,
-                    'duration' => $service->duration,
-                    'capacity' => $service->capacity,
-                    'status' => $service->status,
-                ]);
             }
         });
     }
@@ -81,7 +74,7 @@ class Service extends Model
     }
 
     /**
-     * Get the category of the service.
+     * Get the category that owns the service.
      */
     public function category(): BelongsTo
     {
@@ -89,63 +82,29 @@ class Service extends Model
     }
 
     /**
-     * Get the venues where this service is available.
+     * Get all bookings for the service.
      */
-    public function venues(): BelongsToMany
+    public function bookings(): HasMany
     {
-        return $this->belongsToMany(Venue::class, 'service_venue')
-            ->withPivot(['price', 'duration', 'capacity', 'settings', 'status'])
-            ->withTimestamps();
+        return $this->hasMany(Booking::class);
     }
 
     /**
-     * Get the staff members who can provide this service.
+     * Get all time slots for the service.
      */
-    public function staff(): BelongsToMany
+    public function timeSlots(): HasMany
+    {
+        return $this->hasMany(TimeSlot::class);
+    }
+
+    /**
+     * Get all staff members who can provide this service.
+     */
+    public function staffMembers()
     {
         return $this->belongsToMany(User::class, 'service_staff')
-            ->withPivot(['venue_id', 'settings', 'status'])
+            ->withPivot(['is_primary'])
             ->withTimestamps();
-    }
-
-    /**
-     * Get the price for this service at a specific venue.
-     */
-    public function getPriceAtVenue(Venue $venue): float
-    {
-        $venueService = $this->venues()->where('venue_id', $venue->id)->first();
-        return $venueService?->pivot?->price ?? $this->price;
-    }
-
-    /**
-     * Get the duration for this service at a specific venue.
-     */
-    public function getDurationAtVenue(Venue $venue): int
-    {
-        $venueService = $this->venues()->where('venue_id', $venue->id)->first();
-        return $venueService?->pivot?->duration ?? $this->duration;
-    }
-
-    /**
-     * Get the capacity for this service at a specific venue.
-     */
-    public function getCapacityAtVenue(Venue $venue): int
-    {
-        $venueService = $this->venues()->where('venue_id', $venue->id)->first();
-        return $venueService?->pivot?->capacity ?? $this->capacity;
-    }
-
-    /**
-     * Get staff members who can provide this service at a specific venue.
-     */
-    public function getStaffAtVenue(Venue $venue)
-    {
-        return $this->staff()
-            ->where(function ($query) use ($venue) {
-                $query->where('service_staff.venue_id', $venue->id)
-                    ->orWhereNull('service_staff.venue_id');
-            })
-            ->where('service_staff.status', 'active');
     }
 
     /**
@@ -154,59 +113,5 @@ class Service extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
-    }
-
-    /**
-     * Get a setting value.
-     */
-    public function getSetting(string $key, $default = null)
-    {
-        return data_get($this->settings, $key, $default);
-    }
-
-    /**
-     * Set a setting value.
-     */
-    public function setSetting(string $key, $value): self
-    {
-        $settings = $this->settings ?? [];
-        data_set($settings, $key, $value);
-        $this->settings = $settings;
-        return $this;
-    }
-
-    /**
-     * Format duration as human readable string.
-     */
-    public function getFormattedDurationAttribute(): string
-    {
-        $hours = floor($this->duration / 60);
-        $minutes = $this->duration % 60;
-
-        $parts = [];
-        if ($hours > 0) {
-            $parts[] = $hours . ' ' . Str::plural('hour', $hours);
-        }
-        if ($minutes > 0) {
-            $parts[] = $minutes . ' ' . Str::plural('minute', $minutes);
-        }
-
-        return implode(' ', $parts);
-    }
-
-    /**
-     * Get the service's images.
-     */
-    public function getImagesAttribute($value): ?array
-    {
-        return is_string($value) ? json_decode($value, true) : $value;
-    }
-
-    /**
-     * Get the service's settings.
-     */
-    public function getSettingsAttribute($value): ?array
-    {
-        return is_string($value) ? json_decode($value, true) : $value;
     }
 } 

@@ -12,29 +12,24 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create test admin user
+        // Create admin user
         User::factory()->create([
             'name' => 'Admin User',
             'email' => 'admin@example.com',
             'role' => 'admin',
         ]);
 
-        // Create test staff members
-        User::factory()
-            ->count(20)
-            ->staff()
-            ->create();
-
         // Create test customers
         User::factory()
-            ->count(50)
+            ->count(20)
             ->create();
 
+        // Run other seeders
         $this->call([
             CategorySeeder::class,
-            BusinessSeeder::class,
+            BusinessSeeder::class, // This will create staff members
             StaffAvailabilitySeeder::class,
-            BookingSeeder::class,
+            TimeSlotSeeder::class,
         ]);
     }
 }

@@ -27,7 +27,7 @@ Route::middleware([
 
     // Booking Routes
     Route::prefix('bookings')->name('bookings.')->group(function () {
-        Route::get('/create/{business}/{service}', [BookingController::class, 'create'])->name('create');
+        Route::get('/create/{business:slug}/{service:slug}', [BookingController::class, 'create'])->name('create');
         Route::post('/time-slots', [BookingController::class, 'getTimeSlots'])->name('time-slots');
         Route::post('/staff', [BookingController::class, 'getAvailableStaff'])->name('staff');
         Route::post('/store', [BookingController::class, 'store'])->name('store');

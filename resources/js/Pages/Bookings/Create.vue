@@ -1,122 +1,120 @@
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref, computed, watch } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { formatCurrency, formatDate, formatDuration } from '@/utils';
+import { formatCurrency, formatDuration } from '@/utils';
+import TimeSlotCalendar from '@/Components/TimeSlotCalendar.vue';
+import StaffSelection from '@/Components/StaffSelection.vue';
 
 const props = defineProps({
     business: Object,
     service: Object,
-    venues: Array,
-    dates: Array,
 });
 
-const form = useForm({
-    business_id: props.business.id,
-    service_id: props.service.id,
-    venue_id: null,
-    staff_id: null,
-    date: null,
-    time_slot: null,
-    participants: 1,
-    notes: '',
-});
-
-const currentStep = ref(1);
-const selectedVenue = ref(null);
 const selectedDate = ref(null);
+const selectedTimeSlot = ref(null);
+const selectedStaff = ref(null);
+const participants = ref(1);
+const loading = ref(false);
+const error = ref(null);
 const timeSlots = ref([]);
 const availableStaff = ref([]);
-const isLoading = ref(false);
 
-// Step 1: Select Venue
-const selectVenue = (venue) => {
-    selectedVenue.value = venue;
-    form.venue_id = venue.id;
-    currentStep.value = 2;
-};
-
-// Step 2: Select Date
-const selectDate = async (date) => {
-    selectedDate.value = date;
-    form.date = date;
-    isLoading.value = true;
-
-    try {
-        const response = await axios.post(route('bookings.time-slots'), {
-            business_id: form.business_id,
-            venue_id: form.venue_id,
-            service_id: form.service_id,
-            date: date,
-        });
-        timeSlots.value = response.data;
-        currentStep.value = 3;
-    } catch (error) {
-        console.error('Error fetching time slots:', error);
-    } finally {
-        isLoading.value = false;
-    }
-};
-
-// Step 3: Select Time Slot
-const selectTimeSlot = async (slot) => {
-    form.time_slot = slot;
-    isLoading.value = true;
-
-    try {
-        const response = await axios.post(route('bookings.staff'), {
-            business_id: form.business_id,
-            venue_id: form.venue_id,
-            service_id: form.service_id,
-            date: form.date,
-            time_slot: slot,
-        });
-        availableStaff.value = response.data;
-        currentStep.value = 4;
-    } catch (error) {
-        console.error('Error fetching available staff:', error);
-    } finally {
-        isLoading.value = false;
-    }
-};
-
-// Step 4: Select Staff and Complete Booking
-const selectStaff = (staffId) => {
-    form.staff_id = staffId;
-    currentStep.value = 5;
-};
-
-const submitForm = () => {
-    form.post(route('bookings.store'), {
-        onSuccess: () => {
-            // Show success message and redirect
-        },
+const formatTime = (time) => {
+    return new Date(`2000-01-01T${time}`).toLocaleTimeString([], { 
+        hour: 'numeric', 
+        minute: '2-digit' 
     });
 };
 
-// Computed properties for validation
-const canProceed = computed(() => {
-    switch (currentStep.value) {
-        case 1:
-            return !!form.venue_id;
-        case 2:
-            return !!form.date;
-        case 3:
-            return !!form.time_slot;
-        case 4:
-            return !!form.staff_id;
-        case 5:
-            return form.participants > 0;
-        default:
-            return false;
+watch(selectedDate, async (newDate) => {
+    if (!newDate) {
+        timeSlots.value = [];
+        selectedTimeSlot.value = null;
+        return;
+    }
+    
+    loading.value = true;
+    error.value = null;
+    selectedTimeSlot.value = null;
+    timeSlots.value = [];
+    
+    try {
+        const response = await axios.post(route('bookings.time-slots'), {
+            business_id: props.business.id,
+            service_id: props.service.id,
+            date: newDate,
+            staff_id: selectedStaff.value?.id,
+        });
+        
+        timeSlots.value = response.data.timeSlots;
+        
+        if (timeSlots.value.length === 0) {
+            error.value = 'No time slots available for this date.';
+        }
+    } catch (e) {
+        console.error('Error loading time slots:', e);
+        error.value = e.response?.data?.message || 'Failed to load time slots. Please try again.';
+    } finally {
+        loading.value = false;
     }
 });
 
-// Watch for changes in participants
-watch(() => form.participants, (newValue) => {
-    if (newValue < 1) form.participants = 1;
-    if (newValue > props.service.capacity) form.participants = props.service.capacity;
+watch(selectedTimeSlot, async (newTimeSlot) => {
+    if (!newTimeSlot) {
+        availableStaff.value = [];
+        selectedStaff.value = null;
+        return;
+    }
+    
+    loading.value = true;
+    error.value = null;
+    selectedStaff.value = null;
+    availableStaff.value = [];
+    
+    try {
+        const response = await axios.post(route('bookings.staff'), {
+            business_id: props.business.id,
+            service_id: props.service.id,
+            date: selectedDate.value,
+            time_slot_id: newTimeSlot.id,
+        });
+        
+        availableStaff.value = response.data.staff;
+        
+        if (availableStaff.value.length === 0) {
+            error.value = 'No staff members available for this time slot.';
+        }
+    } catch (e) {
+        console.error('Error loading staff:', e);
+        error.value = e.response?.data?.message || 'Failed to load available staff. Please try again.';
+    } finally {
+        loading.value = false;
+    }
 });
+
+const handleSubmit = async () => {
+    if (!selectedTimeSlot.value) return;
+    
+    loading.value = true;
+    error.value = null;
+    
+    try {
+        const response = await axios.post(route('bookings.store'), {
+            business_id: props.business.id,
+            service_id: props.service.id,
+            time_slot_id: selectedTimeSlot.value.id,
+            staff_id: selectedStaff.value?.id,
+            participants: participants.value,
+        });
+        
+        window.location = route('bookings.show', response.data.booking.id);
+    } catch (e) {
+        console.error('Error creating booking:', e);
+        error.value = e.response?.data?.message || 'Failed to create booking. Please try again.';
+        loading.value = false;
+    }
+};
 </script>
 
 <template>
@@ -124,214 +122,137 @@ watch(() => form.participants, (newValue) => {
         <Head :title="`Book ${service.name} at ${business.name}`" />
 
         <div class="container mx-auto px-4 py-8">
-            <!-- Progress Steps -->
-            <div class="steps w-full mb-8">
-                <a class="step" :class="{ 'step-primary': currentStep >= 1 }">Choose Location</a>
-                <a class="step" :class="{ 'step-primary': currentStep >= 2 }">Select Date</a>
-                <a class="step" :class="{ 'step-primary': currentStep >= 3 }">Pick Time</a>
-                <a class="step" :class="{ 'step-primary': currentStep >= 4 }">Choose Staff</a>
-                <a class="step" :class="{ 'step-primary': currentStep >= 5 }">Confirm</a>
-            </div>
-
             <!-- Service Summary -->
-            <div class="card bg-base-200 mb-8">
+            <div class="card bg-base-100 shadow-xl mb-8">
                 <div class="card-body">
-                    <h2 class="card-title">{{ service.name }}</h2>
-                    <div class="flex flex-wrap gap-4 text-sm">
-                        <div class="badge badge-primary">{{ formatDuration(service.duration) }}</div>
-                        <div class="badge badge-secondary">{{ formatCurrency(service.price) }}</div>
-                        <div class="badge">Up to {{ service.capacity }} people</div>
-                    </div>
-                    <p class="mt-4">{{ service.description }}</p>
-                </div>
-            </div>
-
-            <!-- Step 1: Choose Location -->
-            <div v-if="currentStep === 1" class="space-y-6">
-                <h3 class="text-2xl font-bold mb-4">Choose a Location</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div v-for="venue in venues" :key="venue.id" 
-                        class="card bg-base-100 hover:shadow-xl transition-shadow cursor-pointer"
-                        @click="selectVenue(venue)"
-                    >
-                        <div class="card-body">
-                            <h3 class="card-title">{{ venue.name }}</h3>
-                            <p class="text-sm">{{ venue.address }}</p>
-                            <div class="card-actions justify-end">
-                                <button class="btn btn-primary btn-sm">Select</button>
+                    <div class="flex items-start gap-6">
+                        <img 
+                            :src="service.images?.main || '/images/placeholder.jpg'" 
+                            :alt="service.name"
+                            class="w-32 h-32 rounded-lg object-cover"
+                        />
+                        <div>
+                            <h1 class="text-2xl font-bold mb-2">
+                                {{ service.name }}
+                                <span class="text-base-content/60">at</span>
+                                {{ business.name }}
+                            </h1>
+                            <div class="flex flex-wrap gap-4 text-sm mb-4">
+                                <div class="badge badge-primary">
+                                    {{ formatDuration(service.duration) }}
+                                </div>
+                                <div class="badge">
+                                    Up to {{ service.capacity }} people
+                                </div>
+                                <div class="badge badge-secondary">
+                                    {{ formatCurrency(service.price) }}
+                                </div>
                             </div>
+                            <p class="text-base-content/70">{{ service.description }}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Step 2: Select Date -->
-            <div v-else-if="currentStep === 2" class="space-y-6">
-                <h3 class="text-2xl font-bold mb-4">Select a Date</h3>
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                    <button v-for="date in dates" :key="date" 
-                        class="btn btn-outline"
-                        :class="{ 'btn-primary': selectedDate === date }"
-                        @click="selectDate(date)"
-                    >
-                        {{ formatDate(date, { weekday: 'short', month: 'short', day: 'numeric' }) }}
-                    </button>
-                </div>
-            </div>
+            <!-- Booking Form -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title mb-6">Book Your Session</h2>
 
-            <!-- Step 3: Select Time -->
-            <div v-else-if="currentStep === 3" class="space-y-6">
-                <h3 class="text-2xl font-bold mb-4">Choose a Time</h3>
-                <div v-if="isLoading" class="flex justify-center">
-                    <span class="loading loading-spinner loading-lg"></span>
-                </div>
-                <div v-else class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <button v-for="slot in timeSlots" :key="slot.id"
-                        class="btn btn-outline"
-                        :class="{ 'btn-primary': form.time_slot?.id === slot.id }"
-                        :disabled="!slot.is_available"
-                        @click="selectTimeSlot(slot)"
-                    >
-                        {{ slot.start_time }}
-                    </button>
-                </div>
-            </div>
+                    <form @submit.prevent="handleSubmit" class="space-y-8">
+                        <!-- Calendar -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Select Date</span>
+                            </label>
+                            <TimeSlotCalendar
+                                v-model="selectedDate"
+                                :min-date="new Date()"
+                                :max-date="new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)"
+                            />
+                        </div>
 
-            <!-- Step 4: Select Staff -->
-            <div v-else-if="currentStep === 4" class="space-y-6">
-                <h3 class="text-2xl font-bold mb-4">Choose Your Provider</h3>
-                <div v-if="isLoading" class="flex justify-center">
-                    <span class="loading loading-spinner loading-lg"></span>
-                </div>
-                <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div v-for="staff in availableStaff" :key="staff.id"
-                        class="card bg-base-100 hover:shadow-xl transition-shadow cursor-pointer"
-                        @click="selectStaff(staff.id)"
-                    >
-                        <div class="card-body">
-                            <div class="flex items-center gap-4">
-                                <div class="avatar">
-                                    <div class="w-16 rounded-full">
-                                        <img :src="staff.avatar" :alt="staff.name">
-                                    </div>
-                                </div>
-                                <div>
-                                    <h3 class="font-bold text-lg">{{ staff.name }}</h3>
-                                    <p class="text-sm opacity-70">{{ staff.role }}</p>
-                                </div>
+                        <!-- Loading State -->
+                        <div v-if="loading" class="flex justify-center">
+                            <span class="loading loading-spinner loading-lg text-primary"></span>
+                        </div>
+
+                        <!-- Time Slots -->
+                        <div v-if="selectedDate && !loading" class="form-control">
+                            <label class="label">
+                                <span class="label-text">Select Time</span>
+                            </label>
+                            <div v-if="timeSlots.length > 0" class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                <button
+                                    v-for="slot in timeSlots"
+                                    :key="slot.id"
+                                    type="button"
+                                    class="btn"
+                                    :class="{
+                                        'btn-primary': selectedTimeSlot?.id === slot.id,
+                                        'btn-disabled': !slot.is_available
+                                    }"
+                                    @click="selectedTimeSlot = slot"
+                                >
+                                    {{ formatTime(slot.start_time) }}
+                                </button>
                             </div>
-                            <div class="card-actions justify-end mt-4">
-                                <button class="btn btn-primary btn-sm">Select</button>
+                            <div v-else class="text-center py-4 text-base-content/70">
+                                No time slots available for this date.
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Step 5: Confirm Booking -->
-            <div v-else-if="currentStep === 5" class="space-y-6">
-                <h3 class="text-2xl font-bold mb-4">Confirm Your Booking</h3>
-                
-                <div class="card bg-base-100">
-                    <div class="card-body">
-                        <!-- Booking Summary -->
-                        <div class="space-y-4">
-                            <div class="flex justify-between items-center">
-                                <span class="font-bold">Service:</span>
-                                <span>{{ service.name }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="font-bold">Location:</span>
-                                <span>{{ selectedVenue.name }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="font-bold">Date & Time:</span>
-                                <span>
-                                    {{ formatDate(form.date) }} at {{ form.time_slot.start_time }}
-                                </span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="font-bold">Duration:</span>
-                                <span>{{ formatDuration(service.duration) }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="font-bold">Price:</span>
-                                <span>{{ formatCurrency(service.price * form.participants) }}</span>
-                            </div>
+                        <!-- Staff Selection -->
+                        <div v-if="selectedTimeSlot && !loading" class="form-control">
+                            <label class="label">
+                                <span class="label-text">Select Staff (Optional)</span>
+                            </label>
+                            <StaffSelection
+                                v-model="selectedStaff"
+                                :staff="availableStaff"
+                            />
+                        </div>
 
-                            <div class="divider"></div>
+                        <!-- Participants -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Number of Participants</span>
+                            </label>
+                            <select 
+                                v-model="participants"
+                                class="select select-bordered w-full max-w-xs"
+                            >
+                                <option 
+                                    v-for="n in service.capacity" 
+                                    :key="n" 
+                                    :value="n"
+                                >
+                                    {{ n }} {{ n === 1 ? 'person' : 'people' }}
+                                </option>
+                            </select>
+                        </div>
 
-                            <!-- Number of Participants -->
-                            <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">Number of Participants</span>
-                                </label>
-                                <div class="join">
-                                    <button 
-                                        class="btn join-item"
-                                        @click="form.participants--"
-                                        :disabled="form.participants <= 1"
-                                    >-</button>
-                                    <input 
-                                        type="number" 
-                                        v-model="form.participants"
-                                        class="input input-bordered join-item w-20 text-center"
-                                        min="1"
-                                        :max="service.capacity"
-                                    >
-                                    <button 
-                                        class="btn join-item"
-                                        @click="form.participants++"
-                                        :disabled="form.participants >= service.capacity"
-                                    >+</button>
-                                </div>
-                            </div>
-
-                            <!-- Notes -->
-                            <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">Additional Notes</span>
-                                </label>
-                                <textarea 
-                                    v-model="form.notes"
-                                    class="textarea textarea-bordered h-24"
-                                    placeholder="Any special requests or notes for your booking?"
-                                ></textarea>
-                            </div>
+                        <!-- Error Message -->
+                        <div v-if="error" class="alert alert-error">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{{ error }}</span>
                         </div>
 
                         <!-- Submit Button -->
-                        <div class="card-actions justify-end mt-6">
+                        <div class="card-actions justify-end">
                             <button 
+                                type="submit" 
                                 class="btn btn-primary"
-                                :class="{ 'loading': form.processing }"
-                                :disabled="form.processing"
-                                @click="submitForm"
+                                :class="{ 'loading': loading }"
+                                :disabled="!selectedTimeSlot || loading"
                             >
                                 Confirm Booking
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
-            </div>
-
-            <!-- Navigation Buttons -->
-            <div class="flex justify-between mt-8">
-                <button 
-                    v-if="currentStep > 1"
-                    class="btn btn-outline"
-                    @click="currentStep--"
-                >
-                    Back
-                </button>
-                <button 
-                    v-if="currentStep < 5"
-                    class="btn btn-primary ml-auto"
-                    :disabled="!canProceed"
-                    @click="currentStep++"
-                >
-                    Continue
-                </button>
             </div>
         </div>
     </AppLayout>
