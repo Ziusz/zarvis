@@ -73,7 +73,7 @@ const logout = () => {
             <div class="navbar-end">
                 <!-- Theme Switcher -->
                 <ThemeSwitcher />
-
+                
                 <!-- Teams Dropdown -->
                 <div v-if="$page.props.jetstream.hasTeamFeatures" class="dropdown dropdown-end">
                     <label tabindex="0" class="btn btn-ghost">
