@@ -1,12 +1,24 @@
 /**
  * Format a time string to a human-readable format
- * @param {string} time - The time string to format (HH:mm or HH:mm:ss)
+ * @param {string} time - The time string to format (can be datetime or time)
  * @param {object} options - Intl.DateTimeFormat options
  * @returns {string} The formatted time string
  */
 export function formatTime(time, options = {}) {
-    // Create a date object with a dummy date (2000-01-01) to parse the time
-    const date = new Date(`2000-01-01T${time}`);
+    // If it's a full datetime string, use it directly
+    const date = new Date(time);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+        // If not valid, try parsing as time string
+        const dummyDate = new Date(`2000-01-01T${time}`);
+        return dummyDate.toLocaleTimeString([], { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            ...options
+        });
+    }
+
     return date.toLocaleTimeString([], { 
         hour: 'numeric', 
         minute: '2-digit',
