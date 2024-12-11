@@ -193,4 +193,20 @@ class Service extends Model
 
         return implode(' ', $parts);
     }
+
+    /**
+     * Get the service's images.
+     */
+    public function getImagesAttribute($value): ?array
+    {
+        return is_string($value) ? json_decode($value, true) : $value;
+    }
+
+    /**
+     * Get the service's settings.
+     */
+    public function getSettingsAttribute($value): ?array
+    {
+        return is_string($value) ? json_decode($value, true) : $value;
+    }
 } 

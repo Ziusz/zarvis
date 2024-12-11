@@ -76,6 +76,9 @@ class Business extends Model
                     'name' => $business->name,
                     'slug' => $business->slug,
                     'description' => $business->description,
+                    'address' => fake()->address(),
+                    'latitude' => fake()->latitude(),
+                    'longitude' => fake()->longitude(),
                     'contact_info' => $business->contact_info,
                     'business_hours' => $business->business_hours,
                 ]);
@@ -224,5 +227,29 @@ class Business extends Model
         data_set($settings, $key, $value);
         $this->settings = $settings;
         return $this;
+    }
+
+    /**
+     * Get the business's contact info.
+     */
+    public function getContactInfoAttribute($value): ?array
+    {
+        return is_string($value) ? json_decode($value, true) : $value;
+    }
+
+    /**
+     * Get the business's hours.
+     */
+    public function getBusinessHoursAttribute($value): ?array
+    {
+        return is_string($value) ? json_decode($value, true) : $value;
+    }
+
+    /**
+     * Get the business's settings.
+     */
+    public function getSettingsAttribute($value): ?array
+    {
+        return is_string($value) ? json_decode($value, true) : $value;
     }
 } 

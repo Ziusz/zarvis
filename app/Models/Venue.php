@@ -147,9 +147,11 @@ class Venue extends Model
     public function getContactInfoAttribute($value): ?array
     {
         if ($this->business->is_single_location) {
-            return $value ?? $this->business->contact_info;
+            $value = $value ? (is_string($value) ? json_decode($value, true) : $value) : null;
+            $businessInfo = $this->business->contact_info;
+            return $value ?? $businessInfo;
         }
-        return $value;
+        return is_string($value) ? json_decode($value, true) : $value;
     }
 
     /**
@@ -158,9 +160,27 @@ class Venue extends Model
     public function getBusinessHoursAttribute($value): ?array
     {
         if ($this->business->is_single_location) {
-            return $value ?? $this->business->business_hours;
+            $value = $value ? (is_string($value) ? json_decode($value, true) : $value) : null;
+            $businessHours = $this->business->business_hours;
+            return $value ?? $businessHours;
         }
-        return $value;
+        return is_string($value) ? json_decode($value, true) : $value;
+    }
+
+    /**
+     * Get the venue's images.
+     */
+    public function getImagesAttribute($value): ?array
+    {
+        return is_string($value) ? json_decode($value, true) : $value;
+    }
+
+    /**
+     * Get the venue's amenities.
+     */
+    public function getAmenitiesAttribute($value): ?array
+    {
+        return is_string($value) ? json_decode($value, true) : $value;
     }
 
     /**
