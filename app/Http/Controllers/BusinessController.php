@@ -39,6 +39,27 @@ class BusinessController extends Controller
                 ] : null,
             ]);
 
+        // Format business hours
+        $businessHours = [];
+        $daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        
+        foreach ($daysOfWeek as $day) {
+            $businessHours[$day] = $business->business_hours[$day] ?? null;
+        }
+
+        // Get venue details
+        $venue = $business->primaryVenue;
+        $address = $venue ? [
+            'full' => $venue->address,
+            'latitude' => $venue->latitude,
+            'longitude' => $venue->longitude,
+            'map_url' => sprintf(
+                'https://www.google.com/maps/search/?api=1&query=%s,%s',
+                $venue->latitude,
+                $venue->longitude
+            ),
+        ] : null;
+
         return Inertia::render('Businesses/Show', [
             'business' => [
                 'id' => $business->id,
@@ -50,10 +71,10 @@ class BusinessController extends Controller
                 'email' => $business->email,
                 'phone' => $business->phone,
                 'website' => $business->website,
-                'address' => $business->address,
+                'address' => $address,
                 'is_verified' => $business->isVerified(),
                 'verified_at' => $business->verified_at,
-                'business_hours' => $business->business_hours,
+                'business_hours' => $businessHours,
                 'social_links' => $business->social_links,
                 'categories' => $business->categories->map(fn ($category) => [
                     'id' => $category->id,

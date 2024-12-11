@@ -30,6 +30,13 @@ const uniqueCategories = computed(() => {
     });
     return Array.from(categories);
 });
+
+const handleBooking = (service) => {
+    window.location = route('bookings.create', {
+        business: props.business.slug,
+        service: service.slug
+    });
+};
 </script>
 
 <template>
@@ -78,9 +85,11 @@ const uniqueCategories = computed(() => {
                             </svg>
                             Location
                         </h3>
-                        <p>{{ business.address }}</p>
+                        <p v-if="business.address">{{ business.address.full }}</p>
+                        <p v-else class="text-base-content/60">Address not available</p>
                         <a 
-                            :href="`https://maps.google.com/?q=${business.address}`" 
+                            v-if="business.address?.map_url"
+                            :href="business.address.map_url" 
                             target="_blank"
                             class="link link-primary"
                         >
@@ -125,7 +134,8 @@ const uniqueCategories = computed(() => {
                         <div class="space-y-1">
                             <div v-for="(hours, day) in business.business_hours" :key="day" class="flex justify-between">
                                 <span class="capitalize">{{ day }}</span>
-                                <span>{{ hours.join(' - ') }}</span>
+                                <span v-if="hours">{{ hours[0] }} - {{ hours[1] }}</span>
+                                <span v-else class="text-base-content/60">Closed</span>
                             </div>
                         </div>
                     </div>
@@ -216,7 +226,10 @@ const uniqueCategories = computed(() => {
 
                             <!-- Action -->
                             <div class="card-actions justify-end">
-                                <button class="btn btn-primary">
+                                <button 
+                                    class="btn btn-primary"
+                                    @click="handleBooking(service)"
+                                >
                                     Book Now
                                 </button>
                             </div>
