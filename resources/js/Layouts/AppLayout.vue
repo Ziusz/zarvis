@@ -7,6 +7,7 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
+import ThemeSwitcher from '@/Components/ThemeSwitcher.vue';
 
 defineProps({
     title: String,
@@ -70,6 +71,9 @@ const logout = () => {
             </div>
 
             <div class="navbar-end">
+                <!-- Theme Switcher -->
+                <ThemeSwitcher />
+
                 <!-- Teams Dropdown -->
                 <div v-if="$page.props.jetstream.hasTeamFeatures" class="dropdown dropdown-end">
                     <label tabindex="0" class="btn btn-ghost">
