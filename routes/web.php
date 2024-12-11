@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\WelcomeController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\BusinessController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
