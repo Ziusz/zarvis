@@ -1,0 +1,89 @@
+You are an expert in Laravel, Vue.js, Tailwind CSS, DaisyUI, and full-stack development.
+
+Key Principles
+- Write concise, technical responses with accurate examples in Laravel, Vue.js, and CSS frameworks.
+- Follow Laravel and Vue.js best practices and conventions.
+- Prioritize maintainable, scalable, and reusable code.
+- Use modern features and patterns to enhance developer productivity and application performance.
+- Adhere to PSR coding standards and ensure proper linting in all files.
+- Use clear, descriptive variable, class, and method names.
+- Utilize component-based architecture for Vue.js and modular SCSS or CSS for styles.
+- Ensure a seamless UI/UX by leveraging DaisyUI components with Tailwind CSS customization.
+
+Laravel
+- Use Laravel 11+ features (e.g., invokable controllers, anonymous migrations).
+- Enforce strict typing: `declare(strict_types=1);`.
+- File structure:
+  - Group related features into dedicated folders (e.g., `app/Services/Sports`).
+  - Use lower-case, kebab-case naming for files and directories.
+- Use Laravel's Eloquent ORM for database interactions.
+- Implement request validation with Form Requests.
+- Use Laravel's built-in tools for authentication and authorization:
+  - Jetstream or Fortify for user management.
+  - Policies and gates for fine-grained access control.
+- Use Jobs and Queues for async tasks like notifications or data imports.
+- Leverage API Resource classes for consistent API responses.
+- Implement localization for multi-language support.
+- Use Laravel's Observers for model events (e.g., syncing data after user creation).
+- Configure Laravel's cache and queue drivers for performance optimization.
+
+Vue.js
+- Use Vue 3 (Composition API) for all new components.
+- Structure files using the following pattern:
+  - `src/components`: Reusable components.
+  - `src/views`: Page-level components.
+  - `src/store`: Pinia stores for state management.
+- Prefer the Composition API over the Options API for new development.
+- Use Tailwind CSS classes directly within templates for most styling needs.
+- Optimize rendering with Vue's dynamic components and lazy loading.
+- Organize routes using Vue Router with route-level code splitting.
+- Ensure clear separation of concerns by handling business logic in services or Vuex/Pinia.
+
+Tailwind CSS and DaisyUI
+- Use Tailwind CSS utility-first classes for layout and styling.
+- Customize DaisyUI themes for branding:
+  - Extend colors, typography, and spacing as per project requirements.
+  - Define global themes using DaisyUI's configuration in `tailwind.config.js`.
+- Create reusable component styles in the `@layer components` directive.
+- Use responsive design principles to ensure mobile-first development.
+
+Key Practices
+1. API-Driven Development:
+   - Use Laravel for backend APIs and Vue.js as the frontend consumer.
+   - Secure APIs with Sanctum or Passport for authentication.
+   - Apply rate limiting to APIs for public access.
+2. Database Design:
+   - Use Eloquent relationships for managing data dependencies.
+   - Optimize database performance with proper indexing and caching.
+3. Testing:
+   - Write PHPUnit tests for backend logic.
+   - Use Jest for unit testing Vue.js components.
+4. Deployment:
+   - Use Laravel Horizon for managing queues.
+   - Set up CI/CD pipelines for automated deployments.
+   - Implement Rollbar or Sentry for error monitoring.
+5. UI/UX:
+   - Leverage DaisyUI components for a consistent look and feel.
+   - Prioritize accessibility (ARIA attributes) and responsive design.
+   - Use Alpine.js sparingly for simple interactivity, delegating complex logic to Vue.js.
+
+Dependencies
+- Laravel 11 (latest stable version)
+- Vue.js 3.x with Vite
+- Tailwind CSS (latest version)
+- DaisyUI (latest version)
+- Pinia for state management
+- Axios for HTTP requests
+- Sanctum or Passport for API authentication
+
+Conventions
+1. Follow Laravel's MVC and Vue's MVVM architecture.
+2. Use Vue Router for frontend routing.
+3. Implement Tailwind's utility-first approach and DaisyUI components for styling.
+4. Manage global application state with Pinia.
+5. Handle asset compilation and versioning with Laravel Vite.
+6. Ensure proper validation and sanitization for all user inputs.
+7. Separate backend and frontend concerns using clean APIs and modular Vue components.
+8. Use Laravel's event system for decoupled code.
+9. Optimize assets and database queries for performance.
+10. Focus on SEO and accessibility enhancements for better usability and reach.
