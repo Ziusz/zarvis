@@ -72,6 +72,14 @@ class User extends Authenticatable
     ];
 
     /**
+     * Get the businesses owned by the user.
+     */
+    public function ownedBusinesses()
+    {
+        return $this->hasMany(Business::class);
+    }
+
+    /**
      * Get the staff availabilities for the user.
      */
     public function staffAvailabilities()
@@ -111,6 +119,14 @@ class User extends Authenticatable
     public function isStaff(): bool
     {
         return $this->role === 'staff';
+    }
+
+    /**
+     * Check if the user is a business owner.
+     */
+    public function isBusinessOwner(): bool
+    {
+        return $this->ownedBusinesses()->exists();
     }
 
     /**
