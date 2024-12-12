@@ -70,6 +70,7 @@ Route::middleware([
         Route::get('/{booking}', [BookingController::class, 'show'])->name('show');
         Route::delete('/{booking}', [BookingController::class, 'cancel'])->name('cancel');
         Route::patch('/{booking}/reschedule', [BookingController::class, 'reschedule'])->name('reschedule');
+        Route::post('/available-dates', [BookingController::class, 'getAvailableDates'])->name('available-dates');
     });
 });
 

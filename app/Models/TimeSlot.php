@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class TimeSlot extends Model
 {
@@ -13,119 +13,75 @@ class TimeSlot extends Model
 
     protected $fillable = [
         'business_id',
-        'venue_id',
         'service_id',
         'staff_id',
+        'venue_id',
         'date',
         'start_time',
         'end_time',
         'capacity',
         'booked',
-        'is_available',
         'status',
-        'notes',
     ];
 
     protected $casts = [
         'date' => 'date',
         'start_time' => 'datetime',
         'end_time' => 'datetime',
-        'is_available' => 'boolean',
         'capacity' => 'integer',
         'booked' => 'integer',
     ];
 
-    /**
-     * Get the business that owns the time slot.
-     */
-    public function business(): BelongsTo
+    protected $attributes = [
+        'booked' => 0,
+        'status' => 'available',
+    ];
+
+    public function business()
     {
         return $this->belongsTo(Business::class);
     }
 
-    /**
-     * Get the venue that owns the time slot.
-     */
-    public function venue(): BelongsTo
-    {
-        return $this->belongsTo(Venue::class);
-    }
-
-    /**
-     * Get the service that owns the time slot.
-     */
-    public function service(): BelongsTo
+    public function service()
     {
         return $this->belongsTo(Service::class);
     }
 
-    /**
-     * Get the staff member assigned to the time slot.
-     */
-    public function staff(): BelongsTo
+    public function staff()
     {
         return $this->belongsTo(User::class, 'staff_id');
     }
 
-    /**
-     * Check if the time slot is available.
-     */
-    public function isAvailable(): bool
+    public function venue()
     {
-        return $this->is_available && 
-            $this->status === 'available' && 
-            $this->booked < $this->capacity;
+        return $this->belongsTo(Venue::class);
     }
 
-    /**
-     * Get the remaining capacity.
-     */
-    public function getRemainingCapacity(): int
+    public function bookings()
     {
-        return max(0, $this->capacity - $this->booked);
+        return $this->hasMany(Booking::class);
     }
 
-    /**
-     * Scope a query to only include available time slots.
-     */
-    public function scopeAvailable(Builder $query): void
+    public function scopeAvailable($query)
     {
-        $query->where('is_available', true)
-            ->where('status', 'available')
-            ->whereRaw('booked < capacity');
-    }
-
-    /**
-     * Scope a query to only include future time slots.
-     */
-    public function scopeFuture(Builder $query): void
-    {
-        $query->whereDate('date', '>=', now()->toDateString())
-            ->orWhere(function ($query) {
-                $query->whereDate('date', '=', now()->toDateString())
-                    ->whereTime('start_time', '>', now()->toTimeString());
+        return $query->where('status', 'available')
+            ->where(function ($query) {
+                $query->where('capacity', '>', DB::raw('booked'))
+                    ->orWhereNull('booked');
             });
     }
 
-    /**
-     * Scope a query to only include time slots for a specific date range.
-     */
-    public function scopeInDateRange(Builder $query, string $startDate, string $endDate): void
+    public function isAvailable()
     {
-        $query->whereDate('date', '>=', $startDate)
-            ->whereDate('date', '<=', $endDate);
+        return $this->status === 'available' && 
+            ($this->booked < $this->capacity || is_null($this->booked));
     }
 
-    /**
-     * Get the status label.
-     */
-    public function getStatusLabelAttribute(): string
+    public function getRemainingCapacity()
     {
-        return match($this->status) {
-            'available' => 'Available',
-            'fully-booked' => 'Fully Booked',
-            'blocked' => 'Blocked',
-            default => ucfirst($this->status),
-        };
+        if (is_null($this->booked)) {
+            return $this->capacity;
+        }
+        return max(0, $this->capacity - $this->booked);
     }
 }

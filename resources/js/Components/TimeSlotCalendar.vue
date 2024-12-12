@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
     modelValue: {
@@ -12,176 +12,238 @@ const props = defineProps({
     },
     maxDate: {
         type: Date,
-        default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        default: () => {
+            const date = new Date();
+            date.setMonth(date.getMonth() + 6);
+            return date;
+        },
     },
+    availableDates: {
+        type: Array,
+        default: () => [],
+    },
+    loading: {
+        type: Boolean,
+        default: false,
+    },
+    error: {
+        type: String,
+        default: null,
+    }
 });
 
 const emit = defineEmits(['update:modelValue']);
 
-const currentMonth = ref(new Date());
+const currentDate = ref(new Date());
 const selectedDate = ref(props.modelValue ? new Date(props.modelValue) : null);
 
-watch(() => props.modelValue, (newValue) => {
-    selectedDate.value = newValue ? new Date(newValue) : null;
+// Pre-calculate today's date
+const TODAY = new Date();
+TODAY.setHours(0, 0, 0, 0);
+const TODAY_TIME = TODAY.getTime();
+
+// Create a map of available dates for O(1) lookup
+const availableDatesMap = computed(() => {
+    const map = new Map();
+    props.availableDates.forEach(date => {
+        map.set(date, true);
+    });
+    return map;
 });
 
-watch(selectedDate, (newValue) => {
-    if (!newValue) {
-        emit('update:modelValue', null);
-        return;
+// Get visible dates (2 weeks at a time)
+const visibleDates = computed(() => {
+    const dates = [];
+    const startDate = new Date(currentDate.value);
+    startDate.setUTCHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 14; i++) {
+        const date = new Date(startDate);
+        date.setUTCDate(startDate.getUTCDate() + i);
+        
+        const dateString = date.toISOString().split('T')[0];
+        
+        dates.push({
+            dateString,
+            dayName: date.toLocaleDateString('default', { weekday: 'short' }),
+            dayNumber: date.getUTCDate(),
+            monthName: date.getUTCDate() === 1 || i === 0 
+                ? date.toLocaleDateString('default', { month: 'short' }) 
+                : null,
+            isToday: date.getTime() === TODAY_TIME,
+            isDisabled: isDateDisabled(date),
+            hasSlots: availableDatesMap.value.has(dateString),
+            timestamp: date.getTime()
+        });
     }
-    // Set time to noon to avoid timezone issues
-    const date = new Date(newValue);
-    date.setHours(12, 0, 0, 0);
-    emit('update:modelValue', date.toISOString().split('T')[0]);
+    return dates;
 });
 
-const daysInMonth = (date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const days = [];
-
-    // Add empty days for the start of the month
-    for (let i = 0; i < firstDay.getDay(); i++) {
-        days.push(null);
+const previousWeek = () => {
+    const newDate = new Date(currentDate.value);
+    newDate.setUTCDate(currentDate.value.getUTCDate() - 7);
+    const minDate = new Date(props.minDate);
+    minDate.setUTCHours(0, 0, 0, 0);
+    
+    if (newDate >= minDate) {
+        currentDate.value = newDate;
     }
+};
 
-    // Add the days of the month
-    for (let i = 1; i <= lastDay.getDate(); i++) {
-        const currentDate = new Date(year, month, i, 12, 0, 0, 0); // Set to noon
-        days.push(currentDate);
+const nextWeek = () => {
+    const newDate = new Date(currentDate.value);
+    newDate.setUTCDate(currentDate.value.getUTCDate() + 7);
+    const maxDate = new Date(props.maxDate);
+    maxDate.setUTCHours(0, 0, 0, 0);
+    
+    if (newDate <= maxDate) {
+        currentDate.value = newDate;
     }
-
-    return days;
 };
 
 const isDateDisabled = (date) => {
-    if (!date) return true;
-    
-    // Set all dates to noon for comparison
-    const compareDate = new Date(date);
-    compareDate.setHours(12, 0, 0, 0);
-    
-    const minCompareDate = new Date(props.minDate);
-    minCompareDate.setHours(12, 0, 0, 0);
-    
-    const maxCompareDate = new Date(props.maxDate);
-    maxCompareDate.setHours(12, 0, 0, 0);
-    
-    return compareDate < minCompareDate || compareDate > maxCompareDate;
+    const timestamp = date.getTime();
+    const minTimestamp = props.minDate.getTime();
+    const maxTimestamp = props.maxDate.getTime();
+    return timestamp < minTimestamp || timestamp > maxTimestamp;
 };
 
-const formatDate = (date) => {
-    if (!date) return '';
-    return date.getDate();
+const selectedTimestamp = computed(() => 
+    selectedDate.value ? new Date(selectedDate.value).setUTCHours(0, 0, 0, 0) : null
+);
+
+const selectDate = (dateString) => {
+    selectedDate.value = new Date(dateString);
+    emit('update:modelValue', dateString);
 };
 
-const previousMonth = () => {
-    currentMonth.value = new Date(
-        currentMonth.value.getFullYear(),
-        currentMonth.value.getMonth() - 1,
-        1,
-        12, // Set to noon
-        0,
-        0,
-        0
-    );
-};
+// Watch for external changes
+watch(() => props.modelValue, (newValue) => {
+    if (newValue) {
+        selectedDate.value = new Date(newValue);
+        // Update current date to show selected date in view, but don't scroll
+        const newDate = new Date(newValue);
+        if (newDate < currentDate.value || newDate > new Date(currentDate.value.getTime() + 13 * 24 * 60 * 60 * 1000)) {
+            currentDate.value = newDate;
+        }
+    } else {
+        selectedDate.value = null;
+    }
+});
 
-const nextMonth = () => {
-    currentMonth.value = new Date(
-        currentMonth.value.getFullYear(),
-        currentMonth.value.getMonth() + 1,
-        1,
-        12, // Set to noon
-        0,
-        0,
-        0
-    );
-};
+const currentMonthYear = computed(() => {
+    const date = new Date(currentDate.value);
+    return {
+        month: date.toLocaleDateString('default', { month: 'long' }),
+        year: date.getFullYear()
+    };
+});
 
-const isSelected = (date) => {
-    if (!date || !selectedDate.value) return false;
-    const compareDate = new Date(date);
-    compareDate.setHours(12, 0, 0, 0);
-    const compareSelected = new Date(selectedDate.value);
-    compareSelected.setHours(12, 0, 0, 0);
-    return compareDate.getTime() === compareSelected.getTime();
-};
+const canGoBack = computed(() => {
+    const newDate = new Date(currentDate.value);
+    newDate.setUTCDate(currentDate.value.getUTCDate() - 7);
+    return newDate >= props.minDate;
+});
 
-const isToday = (date) => {
-    if (!date) return false;
-    const today = new Date();
-    today.setHours(12, 0, 0, 0);
-    const compareDate = new Date(date);
-    compareDate.setHours(12, 0, 0, 0);
-    return compareDate.getTime() === today.getTime();
-};
-
-const selectDate = (date) => {
-    if (!date || isDateDisabled(date)) return;
-    const newDate = new Date(date);
-    newDate.setHours(12, 0, 0, 0);
-    selectedDate.value = newDate;
-};
+const canGoForward = computed(() => {
+    const newDate = new Date(currentDate.value);
+    newDate.setUTCDate(currentDate.value.getUTCDate() + 7);
+    return newDate <= props.maxDate;
+});
 </script>
 
 <template>
-    <div class="calendar bg-base-100 rounded-lg shadow-lg p-4">
-        <!-- Calendar Header -->
+    <div class="calendar-wrapper">
+        <!-- Month Display -->
         <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">
+                {{ currentMonthYear.month }} {{ currentMonthYear.year }}
+            </h3>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="loading" class="flex justify-center items-center py-8">
+            <span class="loading loading-spinner loading-lg text-primary"></span>
+        </div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="alert alert-error">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{{ error }}</span>
+        </div>
+
+        <!-- Calendar -->
+        <div v-else class="relative">
             <button 
-                class="btn btn-circle btn-sm btn-ghost"
-                @click="previousMonth"
+                class="btn btn-circle btn-sm btn-ghost absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4"
+                @click="previousWeek"
+                :disabled="!canGoBack"
+                :class="{ 'opacity-50 cursor-not-allowed': !canGoBack }"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                 </svg>
             </button>
-            
-            <h3 class="text-lg font-semibold">
-                {{ currentMonth.toLocaleDateString('default', { month: 'long', year: 'numeric' }) }}
-            </h3>
-            
+
+            <div class="flex gap-2 overflow-x-auto py-2 px-4 scrollbar-hide">
+                <button
+                    v-for="day in visibleDates"
+                    :key="day.dateString"
+                    class="flex-shrink-0 w-20 p-2 rounded-lg transition-all duration-200 relative"
+                    :class="{
+                        'bg-primary text-primary-content': day.timestamp === selectedTimestamp,
+                        'bg-base-200 hover:bg-base-300': day.timestamp !== selectedTimestamp && !day.isDisabled,
+                        'opacity-50 cursor-not-allowed': day.isDisabled
+                    }"
+                    :disabled="day.isDisabled"
+                    @click="selectDate(day.dateString)"
+                >
+                    <div class="text-center">
+                        <div v-if="day.monthName" class="text-xs mb-1 font-medium">
+                            {{ day.monthName }}
+                        </div>
+                        <div class="text-xs mb-1">{{ day.dayName }}</div>
+                        <div class="text-lg font-bold">{{ day.dayNumber }}</div>
+                    </div>
+                    <!-- Availability Indicator -->
+                    <div 
+                        class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-colors duration-200"
+                        :class="{
+                            'bg-success': day.hasSlots,
+                            'bg-error': !day.hasSlots,
+                            'opacity-50': day.isDisabled
+                        }"
+                    ></div>
+                    <!-- Today Indicator -->
+                    <div 
+                        v-if="day.isToday" 
+                        class="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full"
+                    ></div>
+                </button>
+            </div>
+
             <button 
-                class="btn btn-circle btn-sm btn-ghost"
-                @click="nextMonth"
+                class="btn btn-circle btn-sm btn-ghost absolute right-0 top-1/2 -translate-y-1/2 translate-x-4"
+                @click="nextWeek"
+                :disabled="!canGoForward"
+                :class="{ 'opacity-50 cursor-not-allowed': !canGoForward }"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
             </button>
         </div>
-
-        <!-- Calendar Grid -->
-        <div class="grid grid-cols-7 gap-1">
-            <!-- Weekday Headers -->
-            <div 
-                v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" 
-                :key="day"
-                class="text-center text-sm font-medium py-2"
-            >
-                {{ day }}
-            </div>
-
-            <!-- Calendar Days -->
-            <button
-                v-for="(date, index) in daysInMonth(currentMonth)"
-                :key="index"
-                class="aspect-square flex items-center justify-center rounded-full text-sm transition-colors"
-                :class="{
-                    'cursor-not-allowed opacity-30': isDateDisabled(date),
-                    'btn-primary': isSelected(date),
-                    'btn-ghost hover:btn-primary': !isSelected(date) && !isDateDisabled(date),
-                    'ring-2 ring-primary ring-offset-2': isToday(date),
-                }"
-                :disabled="isDateDisabled(date)"
-                @click="selectDate(date)"
-            >
-                {{ formatDate(date) }}
-            </button>
-        </div>
     </div>
-</template> 
+</template>
+
+<style scoped>
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+</style> 
