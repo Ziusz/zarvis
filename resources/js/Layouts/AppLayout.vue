@@ -1,164 +1,214 @@
 <script setup>
-import { ref } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Link } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
+import NavLink from '@/Components/NavLink.vue';
+import ThemeSwitcher from '@/Components/ThemeSwitcher.vue';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
-import Banner from '@/Components/Banner.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
-import NavLink from '@/Components/NavLink.vue';
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
-import ThemeSwitcher from '@/Components/ThemeSwitcher.vue';
-
-defineProps({
-    title: String,
-});
 
 const showingNavigationDropdown = ref(false);
+const page = usePage();
 
-const switchToTeam = (team) => {
-    router.put(route('current-team.update'), {
-        team_id: team.id,
-    }, {
-        preserveState: false,
-    });
-};
-
-const logout = () => {
-    router.post(route('logout'));
-};
+const isBusinessOwner = computed(() => {
+    return page.props.auth?.user?.business_owner ?? false;
+});
 </script>
 
 <template>
-    <div class="min-h-screen bg-base-200">
-        <Head :title="title" />
+    <div>
+        <div class="min-h-screen bg-base-100">
+            <nav class="border-b border-base-200">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between h-16">
+                        <div class="flex">
+                            <!-- Logo -->
+                            <div class="shrink-0 flex items-center">
+                                <Link :href="route('welcome')">
+                                    <ApplicationMark class="block h-9 w-auto" />
+                                </Link>
+                            </div>
 
-        <Banner />
+                            <!-- Navigation Links -->
+                            <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
+                                <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
+                                    Dashboard
+                                </NavLink>
+                                
+                                <!-- Show Business Dashboard link if user is a business owner -->
+                                <NavLink 
+                                    v-if="isBusinessOwner"
+                                    :href="route('business.dashboard')" 
+                                    :active="route().current('business.*')"
+                                >
+                                    Business Dashboard
+                                </NavLink>
+                            </div>
+                        </div>
 
-        <!-- Navbar -->
-        <div class="navbar bg-base-100 shadow-lg">
-            <div class="navbar-start">
-                <!-- Mobile Menu -->
-                <div class="dropdown">
-                    <label tabindex="0" class="btn btn-ghost lg:hidden" @click="showingNavigationDropdown = !showingNavigationDropdown">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    </label>
-                    <ul tabindex="0" :class="{'hidden': !showingNavigationDropdown}" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
-                        <li>
-                            <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">
-                                Dashboard
-                            </ResponsiveNavLink>
-                        </li>
-                    </ul>
+                        <div class="hidden sm:flex sm:items-center sm:ml-6 space-x-4">
+                            <!-- Register Business Button -->
+                            <NavLink 
+                                v-if="$page.props.auth.user && !isBusinessOwner"
+                                :href="route('businesses.register')"
+                                variant="primary"
+                            >
+                                Register Business
+                            </NavLink>
+                            
+                            <!-- Theme Switcher -->
+                            <ThemeSwitcher />
+
+                            <!-- Settings Dropdown -->
+                            <div class="ml-3 relative" v-if="$page.props.auth.user">
+                                <Dropdown align="right" width="48">
+                                    <template #trigger>
+                                        <button class="flex text-sm border-2 border-transparent rounded-full focus:outline-none focus:border-base-300 transition">
+                                            <img class="h-8 w-8 rounded-full object-cover" :src="$page.props.auth.user?.profile_photo_url" :alt="$page.props.auth.user?.name">
+                                        </button>
+                                    </template>
+
+                                    <template #content>
+                                        <!-- Account Management -->
+                                        <div class="block px-4 py-2 text-xs text-base-content/70">
+                                            Manage Account
+                                        </div>
+
+                                        <DropdownLink :href="route('profile.show')">
+                                            Profile
+                                        </DropdownLink>
+
+                                        <div class="border-t border-base-200"></div>
+
+                                        <!-- Authentication -->
+                                        <form @submit.prevent="logout">
+                                            <DropdownLink as="button">
+                                                Log Out
+                                            </DropdownLink>
+                                        </form>
+                                    </template>
+                                </Dropdown>
+                            </div>
+                            
+                            <!-- Login/Register Links for guests -->
+                            <template v-else>
+                                <NavLink :href="route('login')" :active="route().current('login')">
+                                    Log in
+                                </NavLink>
+                                
+                                <NavLink :href="route('register')" :active="route().current('register')">
+                                    Register
+                                </NavLink>
+                                
+                                <NavLink 
+                                    :href="route('register', { redirect: 'businesses.register' })"
+                                    variant="primary"
+                                >
+                                    Register Business
+                                </NavLink>
+                            </template>
+                        </div>
+
+                        <!-- Hamburger -->
+                        <div class="-mr-2 flex items-center sm:hidden">
+                            <button class="inline-flex items-center justify-center p-2 rounded-md text-base-content/70 hover:text-base-content hover:bg-base-200 focus:outline-none focus:bg-base-200 focus:text-base-content transition" @click="showingNavigationDropdown = !showingNavigationDropdown">
+                                <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                                    <path :class="{'hidden': showingNavigationDropdown, 'inline-flex': !showingNavigationDropdown }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                    <path :class="{'hidden': !showingNavigationDropdown, 'inline-flex': showingNavigationDropdown }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Logo -->
-                <Link :href="route('dashboard')" class="btn btn-ghost">
-                    <ApplicationMark class="h-8 w-auto" />
-                </Link>
-            </div>
-
-            <!-- Desktop Menu -->
-            <div class="navbar-center hidden lg:flex">
-                <ul class="menu menu-horizontal px-1">
-                    <li>
+                <!-- Responsive Navigation Menu -->
+                <div :class="{'block': showingNavigationDropdown, 'hidden': !showingNavigationDropdown}" class="sm:hidden">
+                    <div class="pt-2 pb-3 space-y-1">
                         <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
                             Dashboard
                         </NavLink>
-                    </li>
-                </ul>
-            </div>
+                        
+                        <NavLink 
+                            v-if="isBusinessOwner"
+                            :href="route('business.dashboard')" 
+                            :active="route().current('business.*')"
+                        >
+                            Business Dashboard
+                        </NavLink>
+                        
+                        <!-- Mobile Register Business Button -->
+                        <NavLink 
+                            v-if="$page.props.auth.user && !isBusinessOwner"
+                            :href="route('businesses.register')"
+                            variant="primary"
+                        >
+                            Register Business
+                        </NavLink>
+                    </div>
 
-            <div class="navbar-end">
-                <!-- Theme Switcher -->
-                <ThemeSwitcher />
-                
-                <!-- Teams Dropdown -->
-                <div v-if="$page.props.jetstream.hasTeamFeatures" class="dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-ghost">
-                        {{ $page.props.auth.user.current_team.name }}
-                        <svg class="ms-2 -me-0.5 size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-                        </svg>
-                    </label>
-                    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                        <li class="menu-title">Manage Team</li>
-                        <li>
-                            <DropdownLink :href="route('teams.show', $page.props.auth.user.current_team)">
-                                Team Settings
-                            </DropdownLink>
-                        </li>
-                        <li v-if="$page.props.jetstream.canCreateTeams">
-                            <DropdownLink :href="route('teams.create')">
-                                Create New Team
-                            </DropdownLink>
-                        </li>
+                    <!-- Responsive Settings Options -->
+                    <div class="pt-4 pb-1 border-t border-base-200" v-if="$page.props.auth.user">
+                        <div class="flex items-center px-4">
+                            <div class="shrink-0">
+                                <img class="h-10 w-10 rounded-full object-cover" :src="$page.props.auth.user?.profile_photo_url" :alt="$page.props.auth.user?.name">
+                            </div>
 
-                        <!-- Team Switcher -->
-                        <template v-if="$page.props.auth.user.all_teams.length > 1">
-                            <li class="menu-title">Switch Teams</li>
-                            <li v-for="team in $page.props.auth.user.all_teams" :key="team.id">
-                                <form @submit.prevent="switchToTeam(team)">
-                                    <DropdownLink as="button">
-                                        <div class="flex items-center">
-                                            <svg v-if="team.id == $page.props.auth.user.current_team_id" class="me-2 size-5 text-success" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <div>{{ team.name }}</div>
-                                        </div>
-                                    </DropdownLink>
-                                </form>
-                            </li>
-                        </template>
-                    </ul>
-                </div>
-
-                <!-- User Dropdown -->
-                <div class="dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-ghost btn-circle avatar">
-                        <div v-if="$page.props.jetstream.managesProfilePhotos" class="w-10 rounded-full">
-                            <img :src="$page.props.auth.user.profile_photo_url" :alt="$page.props.auth.user.name">
+                            <div class="ml-3">
+                                <div class="font-medium text-base text-base-content">
+                                    {{ $page.props.auth.user?.name }}
+                                </div>
+                                <div class="font-medium text-sm text-base-content/70">
+                                    {{ $page.props.auth.user?.email }}
+                                </div>
+                            </div>
                         </div>
-                        <span v-else class="text-xl">
-                            {{ $page.props.auth.user.name.charAt(0) }}
-                        </span>
-                    </label>
-                    <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
-                        <li class="menu-title">Manage Account</li>
-                        <li>
+
+                        <div class="mt-3 space-y-1">
                             <DropdownLink :href="route('profile.show')">
                                 Profile
                             </DropdownLink>
-                        </li>
-                        <li v-if="$page.props.jetstream.hasApiFeatures">
-                            <DropdownLink :href="route('api-tokens.index')">
-                                API Tokens
-                            </DropdownLink>
-                        </li>
-                        <div class="divider my-0"></div>
-                        <li>
+
+                            <!-- Authentication -->
                             <form @submit.prevent="logout">
                                 <DropdownLink as="button">
                                     Log Out
                                 </DropdownLink>
                             </form>
-                        </li>
-                    </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Mobile Login/Register Links for guests -->
+                    <div v-else class="pt-2 pb-3 space-y-1">
+                        <NavLink :href="route('login')" :active="route().current('login')">
+                            Log in
+                        </NavLink>
+                        
+                        <NavLink :href="route('register')" :active="route().current('register')">
+                            Register
+                        </NavLink>
+                        
+                        <NavLink 
+                            :href="route('register', { redirect: 'businesses.register' })"
+                            variant="primary"
+                        >
+                            Register Business
+                        </NavLink>
+                    </div>
                 </div>
-            </div>
+            </nav>
+
+            <!-- Page Heading -->
+            <header class="bg-base-100 shadow" v-if="$slots.header">
+                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                    <slot name="header" />
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <main>
+                <slot />
+            </main>
         </div>
-
-        <!-- Page Heading -->
-        <header v-if="$slots.header" class="bg-base-100 shadow">
-            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                <slot name="header" />
-            </div>
-        </header>
-
-        <!-- Page Content -->
-        <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <slot />
-        </main>
     </div>
 </template>

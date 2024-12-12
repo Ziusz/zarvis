@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Business;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
  */
 class BusinessFactory extends Factory
 {
+    protected $model = Business::class;
+
     /**
      * Define the model's default state.
      *
@@ -18,43 +21,90 @@ class BusinessFactory extends Factory
      */
     public function definition(): array
     {
-        $name = fake()->company();
+        $name = $this->faker->company();
         
+        // Polish cities
+        $cities = [
+            'Warszawa', 'Kraków', 'Łódź', 'Wrocław', 'Poznań', 
+            'Gdańsk', 'Szczecin', 'Katowice', 'Lublin', 'Białystok'
+        ];
+
+        // Polish street names
+        $streets = [
+            'Marszałkowska', 'Piotrkowska', 'Świętokrzyska', 'Długa', 'Floriańska',
+            'Mickiewicza', 'Kościuszki', 'Sienkiewicza', 'Słowackiego', 'Piłsudskiego'
+        ];
+
+        // Generate a valid Polish NIP
+        $generateNIP = function() {
+            $weights = [6, 5, 7, 2, 3, 4, 5, 6, 7];
+            $digits = array_map(fn() => rand(0, 9), range(1, 9));
+            $sum = 0;
+            
+            for ($i = 0; $i < 9; $i++) {
+                $sum += $digits[$i] * $weights[$i];
+            }
+            
+            $checksum = $sum % 11;
+            if ($checksum === 10) {
+                $checksum = 0;
+            }
+            
+            $digits[] = $checksum;
+            return implode('', $digits);
+        };
+
+        $city = $this->faker->randomElement($cities);
+        $street = $this->faker->randomElement($streets);
+        $buildingNumber = $this->faker->buildingNumber();
+        // Polish postal code format: XX-XXX
+        $postalCode = sprintf("%02d-%03d", rand(0, 99), rand(0, 999));
+
         return [
-            'user_id' => User::factory(),
             'name' => $name,
             'slug' => Str::slug($name),
-            'description' => fake()->paragraph(),
-            'logo' => fake()->imageUrl(200, 200, 'business'),
-            'cover_image' => fake()->imageUrl(1200, 400, 'business'),
-            'email' => fake()->companyEmail(),
-            'phone' => fake()->phoneNumber(),
-            'website' => fake()->url(),
-            'is_single_location' => fake()->boolean(70), // 70% chance of single location
-            'status' => 'active',
-            'business_hours' => [
-                'monday' => ['09:00', '18:00'],
-                'tuesday' => ['09:00', '18:00'],
-                'wednesday' => ['09:00', '18:00'],
-                'thursday' => ['09:00', '18:00'],
-                'friday' => ['09:00', '18:00'],
-                'saturday' => ['10:00', '16:00'],
-                'sunday' => null,
-            ],
-            'settings' => [
-                'booking_advance_days' => fake()->numberBetween(1, 30),
-                'cancellation_policy' => '48h',
-                'notification_preferences' => [
-                    'email' => true,
-                    'sms' => true,
-                    'push' => true,
-                ],
-            ],
-            'social_links' => [
-                'facebook' => fake()->url(),
-                'instagram' => fake()->url(),
-                'twitter' => fake()->url(),
+            'description' => $this->faker->paragraph(),
+            'street_address' => "ul. {$street} {$buildingNumber}",
+            'city' => $city,
+            'postal_code' => $postalCode,
+            'nip' => $generateNIP(),
+            'phone' => $this->faker->regexify('(?:(?:(?:\+|00)?48)|(?:\(\+?48\)))?(?:1[2-8]|2[2-69]|3[2-49]|4[1-8]|5[0-9]|6[0-35-9]|[7-8][1-9]|9[145])\d{7}'),
+            'email' => $this->faker->companyEmail(),
+            'website' => $this->faker->url(),
+            'owner_id' => User::factory(),
+            'opening_hours' => [
+                'monday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
+                'tuesday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
+                'wednesday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
+                'thursday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
+                'friday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
+                'saturday' => ['open' => '10:00', 'close' => '14:00', 'closed' => false],
+                'sunday' => ['open' => '10:00', 'close' => '14:00', 'closed' => true],
             ],
         ];
+    }
+
+    /**
+     * Indicate that the business is verified.
+     */
+    public function verified(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'verified_at' => now(),
+        ]);
+    }
+
+    /**
+     * Configure the model factory.
+     */
+    public function configure()
+    {
+        return $this->afterCreating(function (Business $business) {
+            // Attach the owner as staff
+            $business->staffMembers()->attach($business->owner_id, [
+                'role' => 'owner',
+                'status' => 'active',
+            ]);
+        });
     }
 } 

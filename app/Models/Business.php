@@ -19,22 +19,21 @@ class Business extends Model
         'name',
         'slug',
         'description',
+        'street_address',
+        'city',
+        'postal_code',
+        'nip',
+        'phone',
+        'email',
+        'website',
         'logo',
         'cover_image',
-        'email',
-        'phone',
-        'website',
-        'business_hours',
-        'social_links',
-        'settings',
-        'verified_at',
+        'opening_hours',
+        'owner_id',
     ];
 
     protected $casts = [
-        'business_hours' => 'array',
-        'social_links' => 'array',
-        'settings' => 'array',
-        'verified_at' => 'datetime',
+        'opening_hours' => 'array',
     ];
 
     /**
@@ -147,5 +146,28 @@ class Business extends Model
     public function staffAvailabilities(): HasMany
     {
         return $this->hasMany(StaffAvailability::class);
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function isOwner(User $user): bool
+    {
+        return $this->owner_id === $user->id;
+    }
+
+    public function isStaffMember(User $user): bool
+    {
+        return $this->staffMembers()
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    public function getFullAddressAttribute(): string
+    {
+        return "{$this->street_address}, {$this->postal_code} {$this->city}";
     }
 } 

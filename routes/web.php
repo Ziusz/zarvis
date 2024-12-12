@@ -32,34 +32,38 @@ Route::middleware([
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     // Business Owner Dashboard Routes
-    Route::prefix('business')->middleware(['auth', 'business.owner'])->name('business.')->group(function () {
-        // Dashboard Overview
-        Route::get('/dashboard', [BusinessDashboardController::class, 'index'])->name('dashboard');
-        Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
-        
-        // Staff Management
-        Route::resource('staff', StaffController::class);
-        Route::post('staff/{staff}/availability', [StaffController::class, 'updateAvailability'])
-            ->name('staff.availability.update');
+    Route::prefix('business')
+        ->middleware('auth')
+        ->middleware('business.owner')
+        ->name('business.')
+        ->group(function () {
+            // Dashboard Overview
+            Route::get('/dashboard', [BusinessDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
             
-        // Service Management
-        Route::resource('services', ServiceController::class);
-        Route::post('services/{service}/availability', [ServiceController::class, 'updateAvailability'])
-            ->name('services.availability.update');
+            // Staff Management
+            Route::resource('staff', StaffController::class);
+            Route::post('staff/{staff}/availability', [StaffController::class, 'updateAvailability'])
+                ->name('staff.availability.update');
+                
+            // Service Management
+            Route::resource('services', ServiceController::class);
+            Route::post('services/{service}/availability', [ServiceController::class, 'updateAvailability'])
+                ->name('services.availability.update');
+                
+            // Venue Management
+            Route::resource('venues', VenueController::class);
             
-        // Venue Management
-        Route::resource('venues', VenueController::class);
-        
-        // Settings
-        Route::get('settings', [SettingController::class, 'edit'])->name('settings.edit');
-        Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
-        
-        // Bookings Management
-        Route::get('bookings', [BusinessDashboardController::class, 'bookings'])->name('bookings.index');
-        Route::get('bookings/{booking}', [BusinessDashboardController::class, 'showBooking'])->name('bookings.show');
-        Route::put('bookings/{booking}/status', [BusinessDashboardController::class, 'updateBookingStatus'])
-            ->name('bookings.status.update');
-    });
+            // Settings
+            Route::get('settings', [SettingController::class, 'edit'])->name('settings.edit');
+            Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
+            
+            // Bookings Management
+            Route::get('bookings', [BusinessDashboardController::class, 'bookings'])->name('bookings.index');
+            Route::get('bookings/{booking}', [BusinessDashboardController::class, 'showBooking'])->name('bookings.show');
+            Route::put('bookings/{booking}/status', [BusinessDashboardController::class, 'updateBookingStatus'])
+                ->name('bookings.status.update');
+        });
 
     // Booking Routes
     Route::prefix('bookings')->name('bookings.')->group(function () {
@@ -79,8 +83,14 @@ Route::get('/categories/{category:slug}', [CategoryController::class, 'show'])
     ->name('categories.show');
 
 // Business Routes
-Route::get('/businesses/register', [BusinessController::class, 'create'])
-    ->name('businesses.register');
+Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified'])->group(function () {
+    Route::get('/businesses/register', [BusinessController::class, 'create'])
+        ->name('businesses.register');
+        
+    Route::post('/businesses', [BusinessController::class, 'store'])
+        ->name('businesses.store');
+});
 
+// Public Business Routes
 Route::get('/businesses/{business:slug}', [BusinessController::class, 'show'])
     ->name('businesses.show');

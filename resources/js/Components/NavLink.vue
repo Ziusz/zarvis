@@ -3,34 +3,57 @@ import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 
 const props = defineProps({
-    href: String,
-    active: Boolean,
+    href: {
+        type: String,
+        required: true,
+    },
+    active: {
+        type: Boolean,
+    },
+    external: {
+        type: Boolean,
+        default: false,
+    },
     variant: {
         type: String,
-        default: 'tab', // tab, menu
+        default: 'default', // 'default', 'primary', 'secondary', 'ghost'
     },
-    color: {
+    size: {
         type: String,
-        default: 'primary', // primary, secondary, accent, ghost
+        default: 'md', // 'sm', 'md', 'lg'
     }
 });
 
 const classes = computed(() => {
-    const baseClasses = props.variant === 'tab' 
-        ? ['tab', props.active && 'tab-active', `tab-${props.color}`]
-        : ['menu-item', props.active && 'active', `text-${props.color}`];
-
+    const baseClasses = 'btn';
+    const variantClasses = {
+        default: 'btn-ghost hover:bg-base-200',
+        primary: 'btn-primary',
+        secondary: 'btn-secondary',
+        ghost: 'btn-ghost'
+    };
+    const sizeClasses = {
+        sm: 'btn-sm',
+        md: '',
+        lg: 'btn-lg'
+    };
+    
     return [
-        ...baseClasses,
-        'hover:bg-base-200 transition-colors duration-200',
-    ].filter(Boolean);
+        baseClasses,
+        variantClasses[props.variant],
+        sizeClasses[props.size],
+        props.active ? 'bg-base-200' : ''
+    ].filter(Boolean).join(' ');
 });
 </script>
 
 <template>
-    <Link :href="href" :class="classes">
+    <Link v-if="!external" :href="href" :class="classes">
         <slot />
     </Link>
+    <a v-else :href="href" :class="classes">
+        <slot />
+    </a>
 </template>
 
 <style scoped>

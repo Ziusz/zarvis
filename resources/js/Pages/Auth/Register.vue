@@ -1,29 +1,39 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import Checkbox from '@/Components/Checkbox.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+
+const props = defineProps({
+    redirect: {
+        type: String,
+        default: null,
+    }
+});
 
 const form = useForm({
     name: '',
     email: '',
     password: '',
     password_confirmation: '',
-    terms: false,
+    redirect: props.redirect,
 });
 
 const submit = () => {
     form.post(route('register'), {
-        onFinish: () => form.reset('password', 'password_confirmation'),
+        onFinish: () => {
+            form.reset('password', 'password_confirmation');
+        },
     });
 };
 </script>
 
 <template>
-    <GuestLayout title="Register">
+    <GuestLayout>
+        <Head title="Register" />
+
         <div class="min-h-[80vh] flex flex-col justify-center items-center py-12 sm:px-6 lg:px-8">
             <div class="text-center mb-8">
                 <h2 class="text-3xl font-bold">
@@ -90,30 +100,22 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.password_confirmation" />
                         </div>
 
-                        <div v-if="$page.props.jetstream.hasTermsAndPrivacyPolicyFeature" class="form-control mt-4">
-                            <label class="cursor-pointer label justify-start gap-2">
-                                <Checkbox id="terms" v-model:checked="form.terms" name="terms" required class="checkbox checkbox-primary" />
-                                <span class="label-text">
-                                    I agree to the <a target="_blank" :href="route('terms.show')" class="link link-primary">Terms of Service</a> and <a target="_blank" :href="route('policy.show')" class="link link-primary">Privacy Policy</a>
-                                </span>
-                            </label>
-                            <InputError class="mt-2" :message="form.errors.terms" />
-                        </div>
-
                         <div class="mt-6 flex items-center justify-between">
-                            <Link 
-                                :href="route('login')" 
+                            <Link
+                                :href="route('login')"
                                 class="link link-primary text-sm"
                             >
                                 Already have an account?
                             </Link>
 
-                            <PrimaryButton 
-                                :class="{ 'loading': form.processing }" 
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                                :class="{ 'loading': form.processing }"
                                 :disabled="form.processing"
                             >
                                 Register
-                            </PrimaryButton>
+                            </button>
                         </div>
 
                         <div class="divider mt-8">OR</div>

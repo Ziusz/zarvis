@@ -76,7 +76,7 @@ class User extends Authenticatable
      */
     public function ownedBusinesses()
     {
-        return $this->hasMany(Business::class);
+        return $this->hasMany(Business::class, 'owner_id');
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class BusinessController extends Controller
@@ -99,7 +100,79 @@ class BusinessController extends Controller
      */
     public function store(Request $request)
     {
-        // TODO: Implement business creation
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'slug' => 'required|string|max:255|unique:businesses',
+            'description' => 'required|string',
+            'street_address' => 'required|string|max:255',
+            'city' => 'required|string|max:255',
+            'postal_code' => 'required|string|max:10',
+            'nip' => [
+                'nullable',
+                'string',
+                'size:10',
+                'regex:/^[0-9]{10}$/',
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        // NIP validation algorithm
+                        $weights = [6, 5, 7, 2, 3, 4, 5, 6, 7];
+                        $sum = 0;
+                        
+                        for ($i = 0; $i < 9; $i++) {
+                            $sum += $weights[$i] * intval($value[$i]);
+                        }
+                        
+                        $checksum = $sum % 11;
+                        if ($checksum !== intval($value[9])) {
+                            $fail('The NIP number is invalid.');
+                        }
+                    }
+                },
+            ],
+            'phone' => 'required|string',
+            'email' => 'required|email',
+            'website' => 'nullable|url',
+            'opening_hours' => 'required|array',
+        ]);
+
+        $business = Business::create([
+            'name' => $request->name,
+            'slug' => $request->slug,
+            'description' => $request->description,
+            'street_address' => $request->street_address,
+            'city' => $request->city,
+            'postal_code' => $request->postal_code,
+            'nip' => $request->nip,
+            'phone' => $request->phone,
+            'email' => $request->email,
+            'website' => $request->website,
+            'opening_hours' => $request->opening_hours,
+            'owner_id' => auth()->id(),
+            'status' => 'active',
+        ]);
+
+        // Attach the owner as staff
+        $business->staffMembers()->attach(auth()->id(), [
+            'role' => 'owner',
+            'status' => 'active',
+        ]);
+
+        // Create primary venue
+        $business->venues()->create([
+            'name' => $business->name,
+            'slug' => $business->slug,
+            'description' => $business->description,
+            'address' => $business->street_address . ', ' . $business->postal_code . ' ' . $business->city,
+            'contact_info' => [
+                'phone' => $business->phone,
+                'email' => $business->email,
+            ],
+            'business_hours' => $business->opening_hours,
+            'status' => 'active',
+            'is_primary' => true,
+        ]);
+
+        return redirect()->route('dashboard')->with('success', 'Business registered successfully!');
     }
 
     /**
