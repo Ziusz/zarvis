@@ -1,8 +1,13 @@
 <script setup>
 import { Head } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatCurrency, formatTime, formatDate } from '@/utils.js';
+import DialogModal from '@/Components/DialogModal.vue'
+import SecondaryButton from '@/Components/SecondaryButton.vue'
+import DangerButton from '@/Components/DangerButton.vue'
+import { router } from '@inertiajs/vue3'
+import { Link } from '@inertiajs/vue3'
 
 const props = defineProps({
     upcomingBookings: {
@@ -32,6 +37,92 @@ const props = defineProps({
 });
 
 const isBusinessOwner = computed(() => !!props.business);
+
+const showCancellationModal = ref(false)
+const showBookingDetails = ref(false)
+const selectedBooking = ref(null)
+const processing = ref(false)
+const currentFilter = ref('all')
+
+const filters = [
+    { label: 'All', value: 'all' },
+    { label: 'Today', value: 'today' },
+    { label: 'This Week', value: 'week' },
+    { label: 'This Month', value: 'month' }
+]
+
+const filteredBookings = computed(() => {
+    if (!props.upcomingBookings) return []
+    
+    const now = new Date()
+    return props.upcomingBookings.filter(booking => {
+        const bookingDate = new Date(booking.start_time)
+        switch (currentFilter.value) {
+            case 'today':
+                return bookingDate.toDateString() === now.toDateString()
+            case 'week':
+                const weekStart = new Date(now)
+                weekStart.setDate(now.getDate() - now.getDay())
+                const weekEnd = new Date(weekStart)
+                weekEnd.setDate(weekStart.getDate() + 6)
+                return bookingDate >= weekStart && bookingDate <= weekEnd
+            case 'month':
+                return bookingDate.getMonth() === now.getMonth() && 
+                       bookingDate.getFullYear() === now.getFullYear()
+            default:
+                return true
+        }
+    })
+})
+
+const formatDateTime = (datetime) => {
+    return new Date(datetime).toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+    })
+}
+
+const getStatusClass = (status) => {
+    const classes = {
+        'confirmed': 'bg-success/20 text-success',
+        'pending': 'bg-warning/20 text-warning',
+        'cancelled': 'bg-error/20 text-error',
+        'completed': 'bg-info/20 text-info'
+    }
+    return classes[status] || 'bg-gray-100 text-gray-800'
+}
+
+const viewBookingDetails = (booking) => {
+    selectedBooking.value = booking
+    showBookingDetails.value = true
+}
+
+const openCancellationModal = (booking) => {
+    selectedBooking.value = booking
+    showCancellationModal.value = true
+    if (showBookingDetails.value) {
+        showBookingDetails.value = false
+    }
+}
+
+const cancelBooking = () => {
+    if (!selectedBooking.value) return
+    
+    processing.value = true
+    router.delete(route('bookings.cancel', selectedBooking.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showCancellationModal.value = false
+            selectedBooking.value = null
+        },
+        onFinish: () => {
+            processing.value = false
+        }
+    })
+}
 </script>
 
 <template>
@@ -176,99 +267,206 @@ const isBusinessOwner = computed(() => !!props.business);
                     </div>
                 </div>
 
+                <!-- Quick Filters -->
+                <div class="mb-6 flex flex-wrap gap-2">
+                    <button 
+                        v-for="filter in filters" 
+                        :key="filter.value"
+                        @click="currentFilter = filter.value"
+                        :class="[
+                            'btn btn-sm',
+                            currentFilter === filter.value ? 'btn-primary' : 'btn-ghost'
+                        ]"
+                    >
+                        {{ filter.label }}
+                    </button>
+                </div>
+
                 <!-- Upcoming Bookings -->
-                <div class="card bg-base-100 shadow-xl mb-8">
+                <div class="card bg-base-100 shadow-xl">
                     <div class="card-body">
-                        <h2 class="card-title">Upcoming Bookings</h2>
-                        
-                        <div class="overflow-x-auto">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Date & Time</th>
-                                        <th>Business</th>
-                                        <th>Service</th>
-                                        <th>Staff</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="booking in upcomingBookings" :key="booking.id">
-                                        <td>
-                                            <div class="font-medium">{{ formatDate(booking.start_time) }}</div>
-                                            <div class="text-sm opacity-60">{{ formatTime(booking.start_time) }}</div>
-                                        </td>
-                                        <td>
-                                            <div class="flex items-center gap-2">
-                                                <div class="avatar">
-                                                    <div class="w-8 rounded-full">
-                                                        <img :src="booking.business.logo" :alt="booking.business.name">
-                                                    </div>
+                        <h2 class="card-title mb-4">Upcoming Bookings</h2>
+                        <div class="space-y-4">
+                            <div v-for="booking in filteredBookings" 
+                                :key="booking.id" 
+                                class="card bg-base-200"
+                            >
+                                <div class="card-body p-4">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-4">
+                                            <div class="avatar">
+                                                <div class="w-12 h-12 rounded-full">
+                                                    <img :src="booking.business.logo" :alt="booking.business.name">
                                                 </div>
-                                                <span>{{ booking.business.name }}</span>
                                             </div>
-                                        </td>
-                                        <td>
-                                            {{ booking.service.name }}
-                                            <div class="text-xs opacity-60">
-                                                {{ booking.service.duration }} min
+                                            <div>
+                                                <h3 class="font-medium text-base-content">{{ booking.business.name }}</h3>
+                                                <p class="text-sm text-base-content/70">
+                                                    {{ booking.service.name }} with {{ booking.staff?.name || 'Any Staff' }}
+                                                </p>
+                                                <p class="text-sm text-base-content/70">
+                                                    {{ formatDateTime(booking.start_time) }}
+                                                </p>
                                             </div>
-                                        </td>
-                                        <td v-if="booking.staff">
-                                            <div class="flex items-center gap-2">
-                                                <div class="avatar">
-                                                    <div class="w-8 rounded-full">
-                                                        <img :src="booking.staff.avatar" :alt="booking.staff.name">
-                                                    </div>
-                                                </div>
-                                                <span>{{ booking.staff.name }}</span>
-                                            </div>
-                                        </td>
-                                        <td v-else>
-                                            <span class="text-base-content/50">Not assigned</span>
-                                        </td>
-                                        <td>
-                                            <div class="badge" :class="{
-                                                'badge-warning': booking.status === 'pending',
-                                                'badge-success': booking.status === 'confirmed',
-                                                'badge-error': booking.status === 'cancelled',
-                                                'badge-info': booking.status === 'completed',
-                                            }">
+                                        </div>
+                                        <div class="flex flex-col items-end gap-2">
+                                            <span :class="[
+                                                'badge',
+                                                {
+                                                    'badge-warning': booking.status === 'pending',
+                                                    'badge-success': booking.status === 'confirmed',
+                                                    'badge-error': booking.status === 'cancelled',
+                                                    'badge-info': booking.status === 'completed'
+                                                }
+                                            ]">
                                                 {{ booking.status_label }}
-                                            </div>
-                                        </td>
-                                        <td>
+                                            </span>
                                             <div class="flex gap-2">
-                                                <a :href="route('bookings.show', booking.id)" class="btn btn-ghost btn-sm">
-                                                    View
-                                                </a>
+                                                <Link 
+                                                    :href="route('bookings.show', booking.id)"
+                                                    class="btn btn-sm btn-ghost"
+                                                >
+                                                    View Details
+                                                </Link>
                                                 <button 
-                                                    v-if="booking.can_be_cancelled"
-                                                    class="btn btn-error btn-sm btn-outline"
+                                                    v-if="booking.can_be_cancelled" 
+                                                    @click="openCancellationModal(booking)"
+                                                    class="btn btn-sm btn-error btn-outline"
                                                 >
                                                     Cancel
                                                 </button>
                                             </div>
-                                        </td>
-                                    </tr>
-                                    <tr v-if="upcomingBookings.length === 0">
-                                        <td colspan="6" class="text-center py-4">
-                                            <div class="flex flex-col items-center gap-2">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                </svg>
-                                                <span class="text-base-content/50">No upcoming bookings</span>
-                                                <a href="/" class="btn btn-primary btn-sm mt-2">Book Now</a>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Empty State -->
+                            <div v-if="filteredBookings.length === 0" class="text-center py-8">
+                                <div class="flex flex-col items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <p class="text-base-content/70">No upcoming bookings</p>
+                                    <a href="/" class="btn btn-primary btn-sm mt-2">Book Now</a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Cancellation Modal -->
+        <DialogModal :show="showCancellationModal" @close="showCancellationModal = false">
+            <template #title>
+                <div class="flex items-center gap-2 text-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Cancel Booking
+                </div>
+            </template>
+            <template #content>
+                <div class="space-y-4">
+                    <p>Are you sure you want to cancel this booking?</p>
+                    <div v-if="selectedBooking" class="card bg-base-200">
+                        <div class="card-body p-4">
+                            <p><strong>Service:</strong> {{ selectedBooking.service.name }}</p>
+                            <p><strong>Date & Time:</strong> {{ formatDateTime(selectedBooking.start_time) }}</p>
+                            <p><strong>Business:</strong> {{ selectedBooking.business.name }}</p>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span>Cancellation policies may apply. Please check the business terms and conditions.</span>
+                    </div>
+                </div>
+            </template>
+            <template #footer>
+                <SecondaryButton @click="showCancellationModal = false">
+                    Never mind
+                </SecondaryButton>
+                <DangerButton 
+                    class="ml-3" 
+                    :class="{ 'opacity-25': processing }" 
+                    :disabled="processing"
+                    @click="cancelBooking"
+                >
+                    Cancel Booking
+                </DangerButton>
+            </template>
+        </DialogModal>
+
+        <!-- Booking Details Modal -->
+        <DialogModal :show="showBookingDetails" @close="showBookingDetails = false">
+            <template #title>
+                Booking Details
+            </template>
+            <template #content>
+                <div v-if="selectedBooking" class="space-y-6">
+                    <!-- Business Info -->
+                    <div class="flex items-center space-x-4">
+                        <div class="avatar">
+                            <div class="w-16 h-16 rounded-full">
+                                <img :src="selectedBooking.business.logo" :alt="selectedBooking.business.name">
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-medium">{{ selectedBooking.business.name }}</h3>
+                            <span :class="[
+                                'badge mt-1',
+                                {
+                                    'badge-warning': selectedBooking.status === 'pending',
+                                    'badge-success': selectedBooking.status === 'confirmed',
+                                    'badge-error': selectedBooking.status === 'cancelled',
+                                    'badge-info': selectedBooking.status === 'completed'
+                                }
+                            ]">
+                                {{ selectedBooking.status_label }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Service Details -->
+                    <div class="card bg-base-200">
+                        <div class="card-body p-4 space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-base-content/70">Service</span>
+                                <span class="font-medium">{{ selectedBooking.service.name }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-base-content/70">Duration</span>
+                                <span class="font-medium">{{ selectedBooking.service.duration }} minutes</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-base-content/70">Date & Time</span>
+                                <span class="font-medium">{{ formatDateTime(selectedBooking.start_time) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-base-content/70">Staff</span>
+                                <span class="font-medium">{{ selectedBooking.staff?.name || 'Any Staff' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            <template #footer>
+                <div class="flex justify-between w-full">
+                    <button 
+                        v-if="selectedBooking?.can_be_cancelled"
+                        @click="openCancellationModal(selectedBooking)"
+                        class="btn btn-error btn-outline"
+                    >
+                        Cancel Booking
+                    </button>
+                    <SecondaryButton @click="showBookingDetails = false">
+                        Close
+                    </SecondaryButton>
+                </div>
+            </template>
+        </DialogModal>
     </AppLayout>
 </template>
