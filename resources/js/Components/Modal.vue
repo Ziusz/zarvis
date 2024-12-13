@@ -97,8 +97,23 @@ const modalSizeClass = computed(() => {
                         'sm:max-w-2xl': size === '2xl',
                     }"
                 >
-                    <div class="relative p-6">
-                        <slot v-if="showSlot" />
+                    <div class="relative">
+                        <!-- Title -->
+                        <div v-if="$slots.title" class="p-6 pb-0">
+                            <h3 class="text-lg font-medium">
+                                <slot name="title" />
+                            </h3>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="p-6">
+                            <slot name="content" />
+                        </div>
+
+                        <!-- Footer -->
+                        <div v-if="$slots.footer" class="px-6 py-4 bg-base-200 text-right">
+                            <slot name="footer" />
+                        </div>
                         
                         <button 
                             v-if="closeable" 

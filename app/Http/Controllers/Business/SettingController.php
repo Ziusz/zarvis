@@ -57,9 +57,58 @@ class SettingController extends Controller
      */
     public function staff(Request $request)
     {
-        $business = $request->user()->businesses()->with('staffMembers')->firstOrFail();
+        // Get the business with both staff members and services
+        $business = $request->user()
+            ->businesses()
+            ->with(['staffMembers' => function($query) {
+                $query->withPivot(['role', 'specialties', 'experience', 'languages', 'status'])
+                      ->with('services');
+            }])
+            ->with(['services' => function($query) {
+                $query->where('status', 'active')
+                      ->orderBy('name');
+            }])
+            ->firstOrFail();
+
+        // Map services for the business data
+        $mappedServices = $business->services->map(fn ($service) => [
+            'id' => $service->id,
+            'name' => $service->name,
+            'description' => $service->description,
+            'duration' => $service->duration,
+            'price' => $service->price,
+            'capacity' => $service->capacity,
+            'status' => $service->status,
+        ])->values()->all();
+
+        // Map staff members
+        $mappedStaff = $business->staffMembers->map(fn ($staff) => [
+            'id' => $staff->id,
+            'name' => $staff->name,
+            'email' => $staff->email,
+            'phone' => $staff->phone,
+            'avatar' => $staff->profile_photo_url,
+            'role' => $staff->pivot->role,
+            'specialties' => $staff->pivot->specialties ?? [],
+            'experience' => $staff->pivot->experience,
+            'languages' => $staff->pivot->languages ?? [],
+            'status' => $staff->pivot->status ?? 'active',
+            'services' => $staff->services->map(fn ($service) => [
+                'id' => $service->id,
+                'name' => $service->name,
+            ]),
+        ]);
+
+        // Create business data with services
+        $businessData = [
+            'id' => $business->id,
+            'name' => $business->name,
+            'services' => $mappedServices,
+        ];
+
         return Inertia::render('Business/Settings/Staff', [
-            'business' => $business,
+            'business' => $businessData,
+            'staff' => $mappedStaff,
         ]);
     }
 

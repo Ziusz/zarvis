@@ -5,16 +5,19 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 
 class StaffAvailability extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'user_id',
         'business_id',
-        'venue_id',
         'date',
         'start_time',
         'end_time',
@@ -23,6 +26,11 @@ class StaffAvailability extends Model
         'notes',
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
     protected $casts = [
         'date' => 'date',
         'start_time' => 'datetime',
@@ -44,64 +52,5 @@ class StaffAvailability extends Model
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
-    }
-
-    /**
-     * Get the venue that owns the availability.
-     */
-    public function venue(): BelongsTo
-    {
-        return $this->belongsTo(Venue::class);
-    }
-
-    /**
-     * Check if the staff member is available.
-     */
-    public function isAvailable(): bool
-    {
-        return $this->is_available && $this->status === 'available';
-    }
-
-    /**
-     * Scope a query to only include available staff.
-     */
-    public function scopeAvailable(Builder $query): void
-    {
-        $query->where('is_available', true)
-            ->where('status', 'available');
-    }
-
-    /**
-     * Scope a query to only include future availabilities.
-     */
-    public function scopeFuture(Builder $query): void
-    {
-        $query->whereDate('date', '>=', now()->toDateString())
-            ->orWhere(function ($query) {
-                $query->whereDate('date', '=', now()->toDateString())
-                    ->whereTime('start_time', '>', now()->toTimeString());
-            });
-    }
-
-    /**
-     * Scope a query to only include availabilities for a specific date range.
-     */
-    public function scopeInDateRange(Builder $query, string $startDate, string $endDate): void
-    {
-        $query->whereDate('date', '>=', $startDate)
-            ->whereDate('date', '<=', $endDate);
-    }
-
-    /**
-     * Get the status label.
-     */
-    public function getStatusLabelAttribute(): string
-    {
-        return match($this->status) {
-            'available' => 'Available',
-            'unavailable' => 'Unavailable',
-            'on-leave' => 'On Leave',
-            default => ucfirst($this->status),
-        };
     }
 }

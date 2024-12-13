@@ -107,7 +107,7 @@ class Business extends Model
      */
     public function services(): HasMany
     {
-        return $this->hasMany(Service::class);
+        return $this->hasMany(Service::class)->orderBy('name');
     }
 
     /**
@@ -124,8 +124,9 @@ class Business extends Model
     public function staffMembers()
     {
         return $this->belongsToMany(User::class, 'business_staff')
-            ->withPivot(['role', 'specialties', 'experience', 'languages'])
-            ->withTimestamps();
+            ->withPivot(['role', 'specialties', 'experience', 'languages', 'status'])
+            ->withTimestamps()
+            ->using(BusinessStaff::class);
     }
 
     /**

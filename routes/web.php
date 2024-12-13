@@ -40,8 +40,11 @@ Route::middleware([
             Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
             
             // Staff Management
-            Route::resource('staff', StaffController::class);
-            Route::post('staff/{staff}/availability', [StaffController::class, 'updateAvailability'])
+            Route::get('/staff', [StaffController::class, 'index'])->name('staff.index');
+            Route::post('/staff', [StaffController::class, 'store'])->name('staff.store');
+            Route::put('/staff/{staff}', [StaffController::class, 'update'])->name('staff.update');
+            Route::delete('/staff/{staff}', [StaffController::class, 'destroy'])->name('staff.destroy');
+            Route::post('/staff/{staff}/availability', [StaffController::class, 'updateAvailability'])
                 ->name('staff.availability.update');
                 
             // Service Management
