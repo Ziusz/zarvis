@@ -21,13 +21,7 @@ const modalRef = ref(null);
 const showSlot = ref(props.show);
 
 watch(() => props.show, () => {
-    if (props.show) {
-        document.body.style.overflow = 'hidden';
-        showSlot.value = true;
-    } else {
-        document.body.style.overflow = null;
-        showSlot.value = false;
-    }
+    showSlot.value = props.show;
 });
 
 const close = () => {
@@ -46,11 +40,7 @@ const closeOnEscape = (e) => {
 };
 
 onMounted(() => document.addEventListener('keydown', closeOnEscape));
-
-onUnmounted(() => {
-    document.removeEventListener('keydown', closeOnEscape);
-    document.body.style.overflow = null;
-});
+onUnmounted(() => document.removeEventListener('keydown', closeOnEscape));
 
 const modalSizeClass = computed(() => {
     return {
@@ -64,45 +54,74 @@ const modalSizeClass = computed(() => {
 </script>
 
 <template>
-    <div>
-        <input 
-            type="checkbox" 
-            :checked="show" 
-            @change="close" 
-            class="modal-toggle" 
-        />
-        
+    <Transition
+        leave-active-class="duration-200"
+    >
         <div 
-            class="modal" 
-            :class="{ 'modal-open': show }"
-            ref="modalRef"
-            role="dialog"
-            aria-modal="true"
+            v-show="show"
+            class="fixed inset-0 overflow-y-auto px-4 py-6 sm:px-0 z-50"
         >
-            <div class="modal-box" :class="modalSizeClass">
-                <slot v-if="showSlot" />
-                
-                <button 
-                    v-if="closeable" 
-                    class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+            <Transition
+                enter-active-class="ease-out duration-300"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="ease-in duration-200"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div 
+                    v-show="show"
+                    class="fixed inset-0 transform transition-all"
                     @click="close"
                 >
-                    ✕
-                </button>
-            </div>
-            
-            <label 
-                v-if="closeable"
-                class="modal-backdrop" 
-                @click="close"
-            />
+                    <div class="absolute inset-0 bg-base-200 opacity-75" />
+                </div>
+            </Transition>
+
+            <Transition
+                enter-active-class="ease-out duration-300"
+                enter-from-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enter-to-class="opacity-100 translate-y-0 sm:scale-100"
+                leave-active-class="ease-in duration-200"
+                leave-from-class="opacity-100 translate-y-0 sm:scale-100"
+                leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            >
+                <div 
+                    v-show="show"
+                    class="mb-6 bg-base-100 rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full sm:mx-auto"
+                    :class="{
+                        'sm:max-w-sm': size === 'sm',
+                        'sm:max-w-md': size === 'md',
+                        'sm:max-w-lg': size === 'lg',
+                        'sm:max-w-xl': size === 'xl',
+                        'sm:max-w-2xl': size === '2xl',
+                    }"
+                >
+                    <div class="relative p-6">
+                        <slot v-if="showSlot" />
+                        
+                        <button 
+                            v-if="closeable" 
+                            class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+                            @click="close"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            </Transition>
         </div>
-    </div>
+    </Transition>
 </template>
 
 <style scoped>
 .modal-box {
     @apply relative;
     max-height: calc(100vh - 5em);
+    overflow-y: auto;
+}
+
+.modal {
+    overflow-y: hidden;
 }
 </style>
