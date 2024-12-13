@@ -16,44 +16,57 @@ class SettingController extends Controller
      */
     public function edit(Request $request)
     {
-        $business = $request->user()->businesses()->with('services')->firstOrFail();
+        return redirect()->route('business.settings.profile');
+    }
 
-        // Default opening hours
-        $defaultHours = [
-            'monday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
-            'tuesday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
-            'wednesday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
-            'thursday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
-            'friday' => ['open' => '09:00', 'close' => '17:00', 'closed' => false],
-            'saturday' => ['open' => '09:00', 'close' => '17:00', 'closed' => true],
-            'sunday' => ['open' => '09:00', 'close' => '17:00', 'closed' => true],
-        ];
-
-        // Handle opening hours
-        if (!$business->opening_hours) {
-            $business->opening_hours = $defaultHours;
-        }
-
-        // Convert opening hours format for frontend
-        if ($business->opening_hours) {
-            $business->opening_hours = collect($business->opening_hours)->map(function ($hours) {
-                return [
-                    'is_open' => !($hours['closed'] ?? false),
-                    'start' => $hours['open'] ?? '09:00',
-                    'end' => $hours['close'] ?? '17:00',
-                ];
-            })->toArray();
-        }
-
-        return Inertia::render('Business/Settings', [
+    /**
+     * Show the business profile settings.
+     */
+    public function profile(Request $request)
+    {
+        $business = $request->user()->businesses()->firstOrFail();
+        return Inertia::render('Business/Settings/Profile', [
             'business' => $business,
         ]);
     }
 
     /**
-     * Update the business settings.
+     * Show the working hours settings.
      */
-    public function update(Request $request)
+    public function hours(Request $request)
+    {
+        $business = $request->user()->businesses()->firstOrFail();
+        return Inertia::render('Business/Settings/Hours', [
+            'business' => $business,
+        ]);
+    }
+
+    /**
+     * Show the services settings.
+     */
+    public function services(Request $request)
+    {
+        $business = $request->user()->businesses()->with('services')->firstOrFail();
+        return Inertia::render('Business/Settings/Services', [
+            'business' => $business,
+        ]);
+    }
+
+    /**
+     * Show the staff settings.
+     */
+    public function staff(Request $request)
+    {
+        $business = $request->user()->businesses()->with('staffMembers')->firstOrFail();
+        return Inertia::render('Business/Settings/Staff', [
+            'business' => $business,
+        ]);
+    }
+
+    /**
+     * Update the business profile settings.
+     */
+    public function updateProfile(Request $request)
     {
         $business = $request->user()->businesses()->firstOrFail();
 
@@ -67,10 +80,6 @@ class SettingController extends Controller
             'phone' => ['required', 'string'],
             'email' => ['required', 'email'],
             'website' => ['nullable', 'url'],
-            'working_hours' => ['required', 'array'],
-            'working_hours.*.is_open' => ['required', 'boolean'],
-            'working_hours.*.start' => ['required', 'string'],
-            'working_hours.*.end' => ['required', 'string'],
             'logo' => ['nullable', 'image', 'max:1024'],
             'cover_image' => ['nullable', 'image', 'max:2048'],
         ]);
@@ -91,18 +100,36 @@ class SettingController extends Controller
             $validated['cover_image'] = $request->file('cover_image')->store('business/covers', 'public');
         }
 
+        $business->update($validated);
+
+        return back()->with('success', 'Business profile updated successfully!');
+    }
+
+    /**
+     * Update the working hours settings.
+     */
+    public function updateHours(Request $request)
+    {
+        $business = $request->user()->businesses()->firstOrFail();
+
+        $validated = $request->validate([
+            'working_hours' => ['required', 'array'],
+            'working_hours.*.is_open' => ['required', 'boolean'],
+            'working_hours.*.start' => ['required', 'string'],
+            'working_hours.*.end' => ['required', 'string'],
+        ]);
+
         // Convert working_hours to opening_hours for database
-        $validated['opening_hours'] = collect($validated['working_hours'])->map(function ($hours) {
+        $opening_hours = collect($validated['working_hours'])->map(function ($hours) {
             return [
                 'open' => $hours['start'],
                 'close' => $hours['end'],
                 'closed' => !$hours['is_open'],
             ];
         })->toArray();
-        unset($validated['working_hours']);
 
-        $business->update($validated);
+        $business->update(['opening_hours' => $opening_hours]);
 
-        return redirect()->back()->with('success', 'Business settings updated successfully!');
+        return back()->with('success', 'Working hours updated successfully!');
     }
 } 

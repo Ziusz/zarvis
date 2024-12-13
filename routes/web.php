@@ -36,8 +36,16 @@ Route::middleware([
 
     // Business routes
     Route::middleware('App\Http\Middleware\BusinessOwner')->group(function () {
+        // Settings routes
         Route::get('/business/settings', [App\Http\Controllers\Business\SettingController::class, 'edit'])->name('business.settings');
-        Route::put('/business/settings', [App\Http\Controllers\Business\SettingController::class, 'update'])->name('business.settings.update');
+        Route::get('/business/settings/profile', [App\Http\Controllers\Business\SettingController::class, 'profile'])->name('business.settings.profile');
+        Route::get('/business/settings/hours', [App\Http\Controllers\Business\SettingController::class, 'hours'])->name('business.settings.hours');
+        Route::get('/business/settings/services', [App\Http\Controllers\Business\SettingController::class, 'services'])->name('business.settings.services');
+        Route::get('/business/settings/staff', [App\Http\Controllers\Business\SettingController::class, 'staff'])->name('business.settings.staff');
+
+        // Update routes
+        Route::put('/business/settings/profile', [App\Http\Controllers\Business\SettingController::class, 'updateProfile'])->name('business.settings.profile.update');
+        Route::put('/business/settings/hours', [App\Http\Controllers\Business\SettingController::class, 'updateHours'])->name('business.settings.hours.update');
 
         // Service routes
         Route::post('/business/services', [App\Http\Controllers\Business\ServiceController::class, 'store'])->name('business.services.store');
