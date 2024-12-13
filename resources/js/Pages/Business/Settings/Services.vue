@@ -17,7 +17,7 @@
 
             <!-- Services Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div v-for="service in form.services" :key="service.id" class="card bg-base-200 shadow-xl">
+                <div v-for="service in business.services" :key="service.id" class="card bg-base-200 shadow-xl">
                     <div class="card-body">
                         <div class="flex justify-between items-start">
                             <h4 class="card-title">{{ service.name }}</h4>
@@ -57,7 +57,7 @@
                 </div>
 
                 <!-- Empty State -->
-                <div v-if="!form.services.length" class="col-span-full">
+                <div v-if="!business.services?.length" class="col-span-full">
                     <div class="text-center py-12">
                         <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -76,33 +76,35 @@
 
             <!-- Add/Edit Service Modal -->
             <Modal :show="showAddModal" @close="closeModal">
-                <h3 class="font-bold text-lg mb-4">
-                    {{ editingService ? 'Edit Service' : 'Add New Service' }}
-                </h3>
+                <template #title>
+                    <h3 class="font-bold text-lg">
+                        {{ editingService ? 'Edit Service' : 'Add New Service' }}
+                    </h3>
+                </template>
                 
-                <form @submit.prevent="editingService ? updateService(editingService) : addService">
-                    <div class="space-y-4">
+                <template #content>
+                    <form id="serviceForm" @submit.prevent="submitForm" class="space-y-4">
                         <div>
                             <InputLabel for="service-name" value="Service Name" />
                             <TextInput
                                 id="service-name"
-                                v-model="form.newService.name"
+                                v-model="form.name"
                                 type="text"
                                 class="mt-1 block w-full"
                                 required
                             />
-                            <InputError :message="errors['newService.name']" class="mt-2" />
+                            <InputError :message="errors.name" class="mt-2" />
                         </div>
 
                         <div>
                             <InputLabel for="service-description" value="Description" />
                             <textarea
                                 id="service-description"
-                                v-model="form.newService.description"
+                                v-model="form.description"
                                 class="textarea textarea-bordered w-full h-24 mt-1"
                                 placeholder="Describe your service..."
                             />
-                            <InputError :message="errors['newService.description']" class="mt-2" />
+                            <InputError :message="errors.description" class="mt-2" />
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -110,45 +112,47 @@
                                 <InputLabel for="service-duration" value="Duration (min)" />
                                 <TextInput
                                     id="service-duration"
-                                    v-model="form.newService.duration"
+                                    v-model="form.duration"
                                     type="number"
                                     min="1"
                                     class="mt-1 block w-full"
                                     required
                                 />
-                                <InputError :message="errors['newService.duration']" class="mt-2" />
+                                <InputError :message="errors.duration" class="mt-2" />
                             </div>
 
                             <div>
                                 <InputLabel for="service-price" value="Price" />
                                 <TextInput
                                     id="service-price"
-                                    v-model="form.newService.price"
+                                    v-model="form.price"
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     class="mt-1 block w-full"
                                     required
                                 />
-                                <InputError :message="errors['newService.price']" class="mt-2" />
+                                <InputError :message="errors.price" class="mt-2" />
                             </div>
 
                             <div>
                                 <InputLabel for="service-capacity" value="Capacity" />
                                 <TextInput
                                     id="service-capacity"
-                                    v-model="form.newService.capacity"
+                                    v-model="form.capacity"
                                     type="number"
                                     min="1"
                                     class="mt-1 block w-full"
                                     required
                                 />
-                                <InputError :message="errors['newService.capacity']" class="mt-2" />
+                                <InputError :message="errors.capacity" class="mt-2" />
                             </div>
                         </div>
-                    </div>
+                    </form>
+                </template>
 
-                    <div class="mt-6 flex justify-end gap-2">
+                <template #footer>
+                    <div class="flex justify-end gap-2">
                         <button 
                             type="button" 
                             class="btn btn-ghost"
@@ -158,6 +162,7 @@
                         </button>
                         <button 
                             type="submit"
+                            form="serviceForm"
                             class="btn btn-primary"
                             :class="{ 'loading': processing }"
                             :disabled="processing"
@@ -165,14 +170,14 @@
                             {{ editingService ? 'Save Changes' : 'Add Service' }}
                         </button>
                     </div>
-                </form>
+                </template>
             </Modal>
         </div>
     </SettingsLayout>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import SettingsLayout from '@/Layouts/SettingsLayout.vue';
 import InputError from '@/Components/InputError.vue';
@@ -195,20 +200,18 @@ const processing = ref(false);
 const showAddModal = ref(false);
 const editingService = ref(null);
 
+// Initialize form with default values
 const form = ref({
-    services: props.business.services || [],
-    newService: {
-        name: '',
-        description: '',
-        duration: 60,
-        price: '',
-        capacity: 1,
-        status: 'active'
-    }
+    name: '',
+    description: '',
+    duration: 60,
+    price: '',
+    capacity: 1,
+    status: 'active'
 });
 
 const resetForm = () => {
-    form.value.newService = {
+    form.value = {
         name: '',
         description: '',
         duration: 60,
@@ -226,42 +229,44 @@ const closeModal = () => {
 
 const editService = (service) => {
     editingService.value = service;
-    form.value.newService = { ...service };
+    form.value = { ...service };
     showAddModal.value = true;
 };
 
-const addService = () => {
+const submitForm = () => {
+    if (processing.value) return;
+    
     processing.value = true;
-    router.post(route('business.services.store'), form.value.newService, {
-        preserveScroll: true,
-        onSuccess: () => {
-            processing.value = false;
-            closeModal();
-        },
-        onError: () => {
-            processing.value = false;
-        },
-    });
-};
-
-const updateService = (service) => {
-    processing.value = true;
-    router.put(route('business.services.update', service.id), form.value.newService, {
-        preserveScroll: true,
-        onSuccess: () => {
-            processing.value = false;
-            closeModal();
-        },
-        onError: () => {
-            processing.value = false;
-        },
-    });
+    
+    if (editingService.value) {
+        router.put(`/business/services/${editingService.value.id}`, form.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeModal();
+                processing.value = false;
+            },
+            onError: () => {
+                processing.value = false;
+            },
+        });
+    } else {
+        router.post('/business/services', form.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeModal();
+                processing.value = false;
+            },
+            onError: () => {
+                processing.value = false;
+            },
+        });
+    }
 };
 
 const deleteService = (serviceId) => {
     if (confirm('Are you sure you want to delete this service?')) {
         processing.value = true;
-        router.delete(route('business.services.destroy', serviceId), {
+        router.delete(`/business/services/${serviceId}`, {
             preserveScroll: true,
             onSuccess: () => {
                 processing.value = false;
@@ -271,4 +276,5 @@ const deleteService = (serviceId) => {
             },
         });
     }
-};</script> 
+};
+</script> 

@@ -46,9 +46,41 @@ class SettingController extends Controller
      */
     public function services(Request $request)
     {
-        $business = $request->user()->businesses()->with('services')->firstOrFail();
+        // Get the business with services
+        $business = $request->user()
+            ->businesses()
+            ->with(['services' => function($query) {
+                $query->orderBy('name');
+            }])
+            ->firstOrFail();
+
+        // Map services for the business data
+        $mappedServices = $business->services->map(fn ($service) => [
+            'id' => $service->id,
+            'name' => $service->name,
+            'description' => $service->description,
+            'duration' => $service->duration,
+            'price' => $service->price,
+            'capacity' => $service->capacity,
+            'status' => $service->status,
+        ])->values()->all();
+
+        // Create business data with services
+        $businessData = [
+            'id' => $business->id,
+            'name' => $business->name,
+            'services' => $mappedServices,
+        ];
+
+        // Add debug info
+        \Log::info('Services page data:', [
+            'business_id' => $business->id,
+            'services_count' => count($mappedServices),
+            'services' => $mappedServices
+        ]);
+
         return Inertia::render('Business/Settings/Services', [
-            'business' => $business,
+            'business' => $businessData,
         ]);
     }
 
