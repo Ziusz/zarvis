@@ -16,6 +16,7 @@ class Business extends Model
     use HasFactory;
 
     protected $fillable = [
+        'owner_id',
         'name',
         'slug',
         'description',
@@ -29,11 +30,14 @@ class Business extends Model
         'logo',
         'cover_image',
         'opening_hours',
-        'owner_id',
+        'status',
+        'is_featured',
     ];
 
     protected $casts = [
         'opening_hours' => 'array',
+        'is_featured' => 'boolean',
+        'verified_at' => 'datetime',
     ];
 
     /**
