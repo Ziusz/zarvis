@@ -29,30 +29,6 @@ Route::middleware([
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
-    // Main Dashboard
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
-
-    // Business routes
-    Route::middleware('App\Http\Middleware\BusinessOwner')->group(function () {
-        // Settings routes
-        Route::get('/business/settings', [App\Http\Controllers\Business\SettingController::class, 'edit'])->name('business.settings');
-        Route::get('/business/settings/profile', [App\Http\Controllers\Business\SettingController::class, 'profile'])->name('business.settings.profile');
-        Route::get('/business/settings/hours', [App\Http\Controllers\Business\SettingController::class, 'hours'])->name('business.settings.hours');
-        Route::get('/business/settings/services', [App\Http\Controllers\Business\SettingController::class, 'services'])->name('business.settings.services');
-        Route::get('/business/settings/staff', [App\Http\Controllers\Business\SettingController::class, 'staff'])->name('business.settings.staff');
-
-        // Update routes
-        Route::put('/business/settings/profile', [App\Http\Controllers\Business\SettingController::class, 'updateProfile'])->name('business.settings.profile.update');
-        Route::put('/business/settings/hours', [App\Http\Controllers\Business\SettingController::class, 'updateHours'])->name('business.settings.hours.update');
-
-        // Service routes
-        Route::post('/business/services', [App\Http\Controllers\Business\ServiceController::class, 'store'])->name('business.services.store');
-        Route::put('/business/services/{service}', [App\Http\Controllers\Business\ServiceController::class, 'update'])->name('business.services.update');
-        Route::delete('/business/services/{service}', [App\Http\Controllers\Business\ServiceController::class, 'destroy'])->name('business.services.destroy');
-    });
-
     // Business Owner Dashboard Routes
     Route::prefix('business')
         ->middleware('auth')
@@ -86,6 +62,28 @@ Route::middleware([
             Route::put('bookings/{booking}/status', [BusinessDashboardController::class, 'updateBookingStatus'])
                 ->name('bookings.status.update');
         });
+
+    // Main Dashboard
+    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    // Business routes
+    Route::middleware('App\Http\Middleware\BusinessOwner')->group(function () {
+        // Settings routes
+        Route::get('/business/settings', [App\Http\Controllers\Business\SettingController::class, 'edit'])->name('business.settings');
+        Route::get('/business/settings/profile', [App\Http\Controllers\Business\SettingController::class, 'profile'])->name('business.settings.profile');
+        Route::get('/business/settings/hours', [App\Http\Controllers\Business\SettingController::class, 'hours'])->name('business.settings.hours');
+        Route::get('/business/settings/services', [App\Http\Controllers\Business\SettingController::class, 'services'])->name('business.settings.services');
+        Route::get('/business/settings/staff', [App\Http\Controllers\Business\SettingController::class, 'staff'])->name('business.settings.staff');
+
+        // Update routes
+        Route::put('/business/settings/profile', [App\Http\Controllers\Business\SettingController::class, 'updateProfile'])->name('business.settings.profile.update');
+        Route::put('/business/settings/hours', [App\Http\Controllers\Business\SettingController::class, 'updateHours'])->name('business.settings.hours.update');
+
+        // Service routes
+        Route::post('/business/services', [App\Http\Controllers\Business\ServiceController::class, 'store'])->name('business.services.store');
+        Route::put('/business/services/{service}', [App\Http\Controllers\Business\ServiceController::class, 'update'])->name('business.services.update');
+        Route::delete('/business/services/{service}', [App\Http\Controllers\Business\ServiceController::class, 'destroy'])->name('business.services.destroy');
+    });
 
     // Booking Routes
     Route::prefix('bookings')->name('bookings.')->group(function () {
