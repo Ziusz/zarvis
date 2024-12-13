@@ -11,6 +11,7 @@ use App\Http\Controllers\Business\ServiceController;
 use App\Http\Controllers\Business\VenueController;
 use App\Http\Controllers\Business\SettingController;
 use App\Http\Controllers\Business\AnalyticsController;
+use App\Http\Middleware\BusinessOwner;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -34,7 +35,7 @@ Route::middleware([
     // Business Owner Dashboard Routes
     Route::prefix('business')
         ->middleware('auth')
-        ->middleware('business.owner')
+        ->middleware(BusinessOwner::class)
         ->name('business.')
         ->group(function () {
             // Dashboard Overview
