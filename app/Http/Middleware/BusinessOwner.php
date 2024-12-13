@@ -13,7 +13,7 @@ class BusinessOwner
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!$request->user() || !$request->user()->ownedBusinesses()->exists()) {
+        if (!$request->user() || !$request->user()->businesses()->exists()) {
             return redirect()->route('businesses.register')
                 ->with('error', 'You need to register a business first.');
         }

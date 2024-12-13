@@ -10,6 +10,8 @@ use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Jetstream\HasTeams;
 use Laravel\Sanctum\HasApiTokens;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -74,9 +76,19 @@ class User extends Authenticatable
     /**
      * Get the businesses owned by the user.
      */
-    public function ownedBusinesses()
+    public function businesses(): HasMany
     {
         return $this->hasMany(Business::class, 'owner_id');
+    }
+
+    /**
+     * Get the businesses where the user is a staff member.
+     */
+    public function staffBusinesses(): BelongsToMany
+    {
+        return $this->belongsToMany(Business::class, 'business_staff')
+            ->withPivot(['role', 'specialties', 'experience', 'languages'])
+            ->withTimestamps();
     }
 
     /**
@@ -126,7 +138,7 @@ class User extends Authenticatable
      */
     public function isBusinessOwner(): bool
     {
-        return $this->ownedBusinesses()->exists();
+        return $this->businesses()->exists();
     }
 
     /**

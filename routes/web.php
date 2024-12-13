@@ -30,7 +30,20 @@ Route::middleware([
     'verified',
 ])->group(function () {
     // Main Dashboard
-    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/dashboard', function () {
+        return Inertia::render('Dashboard');
+    })->name('dashboard');
+
+    // Business routes
+    Route::middleware('App\Http\Middleware\BusinessOwner')->group(function () {
+        Route::get('/business/settings', [App\Http\Controllers\Business\SettingController::class, 'edit'])->name('business.settings');
+        Route::put('/business/settings', [App\Http\Controllers\Business\SettingController::class, 'update'])->name('business.settings.update');
+
+        // Service routes
+        Route::post('/business/services', [App\Http\Controllers\Business\ServiceController::class, 'store'])->name('business.services.store');
+        Route::put('/business/services/{service}', [App\Http\Controllers\Business\ServiceController::class, 'update'])->name('business.services.update');
+        Route::delete('/business/services/{service}', [App\Http\Controllers\Business\ServiceController::class, 'destroy'])->name('business.services.destroy');
+    });
 
     // Business Owner Dashboard Routes
     Route::prefix('business')

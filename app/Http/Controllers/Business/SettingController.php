@@ -16,7 +16,7 @@ class SettingController extends Controller
      */
     public function edit(Request $request)
     {
-        $business = $request->user()->ownedBusinesses()->firstOrFail();
+        $business = $request->user()->businesses()->with('services')->firstOrFail();
 
         // Default opening hours
         $defaultHours = [
@@ -55,7 +55,7 @@ class SettingController extends Controller
      */
     public function update(Request $request)
     {
-        $business = $request->user()->ownedBusinesses()->firstOrFail();
+        $business = $request->user()->businesses()->firstOrFail();
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],

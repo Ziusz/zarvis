@@ -28,6 +28,7 @@ class Service extends Model
         'capacity',
         'images',
         'settings',
+        'status',
     ];
 
     /**
