@@ -201,10 +201,19 @@ const handleSubmit = async () => {
         const response = await axios.post(route('bookings.store'), {
             business_id: props.business.id,
             service_id: props.service.id,
-            time_slot_id: selectedTimeSlot.value.id,
+            time_slot_id: `${selectedDate.value}_${selectedTimeSlot.value.start_time}_${selectedTimeSlot.value.end_time}`,
             staff_id: selectedStaff.value?.id,
             participants: participants.value,
         });
+
+        if (response.data.booking.needs_staff) {
+            // Show success message with unassigned staff notice
+            const message = `Booking created successfully! Since no staff member is currently available for this time slot, 
+                           your booking is pending staff assignment. The business will contact you once a staff member is assigned.`;
+            
+            // You might want to use your preferred notification system here
+            alert(message);
+        }
         
         window.location = route('bookings.show', response.data.booking.id);
     } catch (e) {
@@ -354,7 +363,17 @@ watch(selectedStaff, loadAvailableDates);
                             <label class="label">
                                 <span class="label-text">Select Staff (Optional)</span>
                             </label>
+                            <div v-if="availableStaff.length === 0" class="alert alert-info">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <h3 class="font-bold">No Staff Available</h3>
+                                    <div class="text-sm">You can still book this time slot. The business will assign a staff member later.</div>
+                                </div>
+                            </div>
                             <StaffSelection
+                                v-else
                                 v-model="selectedStaff"
                                 :staff="availableStaff"
                             />

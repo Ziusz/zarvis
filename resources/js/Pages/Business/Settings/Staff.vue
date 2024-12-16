@@ -365,38 +365,6 @@
             </template>
         </Modal>
 
-        <!-- Availability Modal -->
-        <Modal
-            :show="showAvailabilityModal"
-            @close="closeAvailabilityModal"
-            size="xl"
-        >
-            <template #title>
-                {{ selectedStaff ? `${selectedStaff.name}'s Availability` : 'Staff Availability' }}
-            </template>
-
-            <template #content>
-                <div class="space-y-6">
-                    <!-- Calendar will go here -->
-                    <div class="alert alert-info">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>Staff availability calendar will be implemented in the next update!</span>
-                    </div>
-                </div>
-            </template>
-
-            <template #footer>
-                <button 
-                    class="btn btn-ghost"
-                    @click="closeAvailabilityModal"
-                >
-                    Close
-                </button>
-            </template>
-        </Modal>
-
         <!-- Delete Confirmation Modal -->
         <Modal
             :show="showDeleteModal"
@@ -428,14 +396,132 @@
                 </div>
             </template>
         </Modal>
+
+        <!-- Add Availability Modal -->
+        <Modal
+            :show="showAvailabilityModal"
+            @close="closeAvailabilityModal"
+            size="xl"
+        >
+            <template #title>
+                {{ selectedStaff ? `${selectedStaff.name}'s Availability` : 'Staff Availability' }}
+            </template>
+
+            <template #content>
+                <div class="space-y-6">
+                    <!-- Week Navigation -->
+                    <div class="flex justify-between items-center bg-base-200 p-4 rounded-lg">
+                        <button 
+                            class="btn btn-ghost btn-sm"
+                            @click="previousWeek"
+                        >
+                            ← Previous Week
+                        </button>
+                        <h3 class="text-lg font-medium">
+                            {{ formatDateRange(currentWeek.start, currentWeek.end) }}
+                        </h3>
+                        <button 
+                            class="btn btn-ghost btn-sm"
+                            @click="nextWeek"
+                        >
+                            Next Week →
+                        </button>
+                    </div>
+
+                    <!-- Weekly Calendar -->
+                    <div class="space-y-4">
+                        <div v-for="date in weekDays" :key="date.format('YYYY-MM-DD')" 
+                            class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow"
+                        >
+                            <div class="card-body">
+                                <h3 class="card-title text-lg">{{ date.format('dddd, MMMM D') }}</h3>
+                                
+                                <!-- Time Slots -->
+                                <div class="space-y-2 mt-4">
+                                    <div v-for="(slot, index) in getDaySlots(date)" :key="index" 
+                                        class="flex items-center gap-4 p-3 border rounded-lg bg-base-100 hover:bg-base-200 transition-colors"
+                                    >
+                                        <div class="flex-1 flex items-center gap-4">
+                                            <div class="flex items-center gap-2">
+                                                <input 
+                                                    type="time" 
+                                                    v-model="slot.start_time"
+                                                    class="input input-bordered input-sm w-32"
+                                                >
+                                                <span class="text-base-content/70">to</span>
+                                                <input 
+                                                    type="time" 
+                                                    v-model="slot.end_time"
+                                                    class="input input-bordered input-sm w-32"
+                                                >
+                                            </div>
+                                            <select 
+                                                v-model="slot.status"
+                                                class="select select-bordered select-sm"
+                                            >
+                                                <option value="available">Available</option>
+                                                <option value="unavailable">Unavailable</option>
+                                                <option value="on-leave">On Leave</option>
+                                            </select>
+                                        </div>
+                                        <button 
+                                            @click="removeTimeSlot(date, index)"
+                                            class="btn btn-ghost btn-sm btn-circle"
+                                            :disabled="getDaySlots(date).length === 1"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    
+                                    <button 
+                                        @click="addTimeSlot(date)"
+                                        class="btn btn-ghost btn-sm w-full"
+                                    >
+                                        + Add Time Slot
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <template #footer>
+                <div class="flex justify-between">
+                    <button 
+                        class="btn btn-primary"
+                        @click="syncWithBusinessHours"
+                        :disabled="processing"
+                    >
+                        Sync with Business Hours
+                    </button>
+                    <div class="flex gap-2">
+                        <button 
+                            class="btn btn-ghost"
+                            @click="closeAvailabilityModal"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            class="btn btn-primary"
+                            @click="saveAvailability"
+                            :disabled="processing"
+                        >
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </Modal>
     </SettingsLayout>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, Link } from '@inertiajs/vue3';
 import SettingsLayout from '@/Layouts/SettingsLayout.vue';
 import Modal from '@/Components/Modal.vue';
+import dayjs from 'dayjs';
 
 const props = defineProps({
     business: {
@@ -492,8 +578,13 @@ const selectedStaff = ref(null);
 
 // Modal state
 const showStaffModal = ref(false);
-const showAvailabilityModal = ref(false);
 const showDeleteModal = ref(false);
+const showAvailabilityModal = ref(false);
+const currentWeek = reactive({
+    start: dayjs().startOf('week'),
+    end: dayjs().endOf('week')
+});
+const availabilitySlots = ref({});
 
 // Input state for tags
 const specialtyInput = ref('');
@@ -524,16 +615,6 @@ const openEditStaffModal = (member) => {
 const closeStaffModal = () => {
     showStaffModal.value = false;
     resetForm();
-};
-
-const openAvailabilityModal = (member) => {
-    selectedStaff.value = member;
-    showAvailabilityModal.value = true;
-};
-
-const closeAvailabilityModal = () => {
-    showAvailabilityModal.value = false;
-    selectedStaff.value = null;
 };
 
 const confirmDelete = (member) => {
@@ -620,5 +701,168 @@ const deleteStaff = () => {
             processing.value = false;
         },
     });
+};
+
+// Availability methods
+const openAvailabilityModal = (member) => {
+    selectedStaff.value = member;
+    showAvailabilityModal.value = true;
+    loadAvailability();
+};
+
+const closeAvailabilityModal = () => {
+    showAvailabilityModal.value = false;
+    selectedStaff.value = null;
+    availabilitySlots.value = {};
+};
+
+const previousWeek = () => {
+    currentWeek.start = currentWeek.start.subtract(1, 'week');
+    currentWeek.end = currentWeek.end.subtract(1, 'week');
+    loadAvailability();
+};
+
+const nextWeek = () => {
+    currentWeek.start = currentWeek.start.add(1, 'week');
+    currentWeek.end = currentWeek.end.add(1, 'week');
+    loadAvailability();
+};
+
+const formatDateRange = (start, end) => {
+    if (start.format('MMM YYYY') === end.format('MMM YYYY')) {
+        return `${start.format('MMM D')} - ${end.format('D, YYYY')}`;
+    }
+    return `${start.format('MMM D')} - ${end.format('MMM D, YYYY')}`;
+};
+
+const weekDays = computed(() => {
+    const days = [];
+    let current = currentWeek.start;
+    while (current.isBefore(currentWeek.end) || current.isSame(currentWeek.end, 'day')) {
+        days.push(current);
+        current = current.add(1, 'day');
+    }
+    return days;
+});
+
+// Get business hours for a specific day
+const getBusinessHours = (date) => {
+    const dayOfWeek = date.format('dddd').toLowerCase();
+    const hours = props.business.opening_hours?.[dayOfWeek];
+    
+    if (!hours) return null;
+
+    // Handle both old and new format
+    if (hours.is_open !== undefined) {
+        return hours.is_open ? {
+            start: hours.start,
+            end: hours.end
+        } : null;
+    }
+
+    return hours.closed ? null : {
+        start: hours.open,
+        end: hours.close
+    };
+};
+
+const getDaySlots = (date) => {
+    const dateKey = date.format('YYYY-MM-DD');
+    if (!availabilitySlots.value[dateKey]) {
+        // Get business hours for this day
+        const businessHours = getBusinessHours(date);
+        if (businessHours) {
+            availabilitySlots.value[dateKey] = [{
+                start_time: businessHours.start,
+                end_time: businessHours.end,
+                status: 'available'
+            }];
+        } else {
+            // If business is closed, set as unavailable
+            availabilitySlots.value[dateKey] = [{
+                start_time: '09:00',
+                end_time: '17:00',
+                status: 'unavailable'
+            }];
+        }
+    }
+    return availabilitySlots.value[dateKey];
+};
+
+const addTimeSlot = (date) => {
+    const dateKey = date.format('YYYY-MM-DD');
+    const businessHours = getBusinessHours(date);
+    if (!availabilitySlots.value[dateKey]) {
+        availabilitySlots.value[dateKey] = [];
+    }
+    availabilitySlots.value[dateKey].push({
+        start_time: businessHours?.start || '09:00',
+        end_time: businessHours?.end || '17:00',
+        status: businessHours ? 'available' : 'unavailable'
+    });
+};
+
+const removeTimeSlot = (date, index) => {
+    const dateKey = date.format('YYYY-MM-DD');
+    if (availabilitySlots.value[dateKey] && availabilitySlots.value[dateKey].length > 1) {
+        availabilitySlots.value[dateKey].splice(index, 1);
+    }
+};
+
+const loadAvailability = async () => {
+    if (!selectedStaff.value) return;
+    
+    try {
+        const response = await axios.get(route('business.staff.availability.show', selectedStaff.value.id), {
+            params: {
+                start_date: currentWeek.start.format('YYYY-MM-DD'),
+                end_date: currentWeek.end.format('YYYY-MM-DD')
+            }
+        });
+        
+        availabilitySlots.value = response.data.availabilities;
+    } catch (error) {
+        console.error('Failed to load availability:', error);
+    }
+};
+
+const syncWithBusinessHours = async () => {
+    if (!selectedStaff.value) return;
+    
+    processing.value = true;
+    try {
+        await axios.post(route('business.staff.availability.sync', selectedStaff.value.id), {
+            start_date: currentWeek.start.format('YYYY-MM-DD'),
+            end_date: currentWeek.end.format('YYYY-MM-DD')
+        });
+        
+        await loadAvailability();
+    } catch (error) {
+        console.error('Failed to sync with business hours:', error);
+    } finally {
+        processing.value = false;
+    }
+};
+
+const saveAvailability = async () => {
+    if (!selectedStaff.value) return;
+    
+    processing.value = true;
+    try {
+        const updates = Object.entries(availabilitySlots.value).map(([date, slots]) => ({
+            date,
+            availabilities: slots
+        }));
+        
+        await axios.put(route('business.staff.availability.update', selectedStaff.value.id), {
+            updates
+        });
+        
+        closeAvailabilityModal();
+    } catch (error) {
+        console.error('Failed to save availability:', error);
+    } finally {
+        processing.value = false;
+    }
 };
 </script> 

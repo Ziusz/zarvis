@@ -231,6 +231,10 @@ class BookingController extends Controller
             ], 422);
         }
 
+        // Check if staff is assigned
+        $hasStaff = $request->staff_id || $timeSlot->staff_id;
+        $bookingStatus = $hasStaff ? 'pending' : 'unassigned';
+
         // Create the booking
         $booking = Booking::create([
             'user_id' => auth()->id(),
@@ -242,7 +246,7 @@ class BookingController extends Controller
             'end_time' => Carbon::parse($date . ' ' . $end_time),
             'participants' => $request->participants,
             'total_price' => $service->price * $request->participants,
-            'status' => 'pending',
+            'status' => $bookingStatus,
             'payment_status' => 'pending',
             'customer_details' => [
                 'name' => auth()->user()->name,
@@ -261,12 +265,19 @@ class BookingController extends Controller
         $timeSlot->status = $timeSlot->booked >= $timeSlot->capacity ? 'fully-booked' : 'available';
         $timeSlot->save();
 
+        // If no staff is assigned, notify business about unassigned booking
+        if (!$hasStaff) {
+            // TODO: Implement notification system
+            // Notification::send($business->owner, new UnassignedBookingNotification($booking));
+        }
+
         return response()->json([
             'booking' => [
                 'id' => $booking->id,
                 'status' => $booking->status,
                 'start_time' => $booking->start_time,
                 'total_price' => $booking->total_price,
+                'needs_staff' => !$hasStaff,
             ],
         ]);
     }

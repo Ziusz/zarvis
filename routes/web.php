@@ -64,6 +64,20 @@ Route::middleware([
             Route::get('bookings/{booking}', [BusinessDashboardController::class, 'showBooking'])->name('bookings.show');
             Route::put('bookings/{booking}/status', [BusinessDashboardController::class, 'updateBookingStatus'])
                 ->name('bookings.status.update');
+
+            // Staff Availability Management
+            Route::prefix('staff/availability')->name('staff.availability.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Business\StaffAvailabilityController::class, 'index'])
+                    ->name('index');
+                Route::get('/{staff}', [App\Http\Controllers\Business\StaffAvailabilityController::class, 'show'])
+                    ->name('show');
+                Route::post('/{staff}/sync', [App\Http\Controllers\Business\StaffAvailabilityController::class, 'sync'])
+                    ->name('sync');
+                Route::put('/{staff}', [App\Http\Controllers\Business\StaffAvailabilityController::class, 'update'])
+                    ->name('update');
+                Route::post('/{staff}/bulk', [App\Http\Controllers\Business\StaffAvailabilityController::class, 'bulkUpdate'])
+                    ->name('bulk-update');
+            });
         });
 
     // Main Dashboard
