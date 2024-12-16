@@ -90,14 +90,14 @@ Route::middleware([
 
     // Booking Routes
     Route::prefix('bookings')->name('bookings.')->group(function () {
-        Route::get('/create/{business:slug}/{service:slug}', [BookingController::class, 'create'])->name('create');
-        Route::post('/time-slots', [BookingController::class, 'getTimeSlots'])->name('time-slots');
+        Route::get('/available-dates', [BookingController::class, 'getAvailableDates'])->name('available-dates');
+        Route::get('/time-slots', [BookingController::class, 'getTimeSlots'])->name('time-slots');
         Route::post('/staff', [BookingController::class, 'getAvailableStaff'])->name('staff');
+        Route::get('/create/{business:slug}/{service:slug}', [BookingController::class, 'create'])->name('create');
         Route::post('/store', [BookingController::class, 'store'])->name('store');
         Route::get('/{booking}', [BookingController::class, 'show'])->name('show');
         Route::delete('/{booking}', [BookingController::class, 'cancel'])->name('cancel');
         Route::patch('/{booking}/reschedule', [BookingController::class, 'reschedule'])->name('reschedule');
-        Route::post('/available-dates', [BookingController::class, 'getAvailableDates'])->name('available-dates');
     });
 });
 

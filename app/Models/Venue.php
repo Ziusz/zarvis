@@ -31,6 +31,7 @@ class Venue extends Model
         'images',
         'amenities',
         'status',
+        'is_primary',
     ];
 
     /**

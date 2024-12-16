@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Carbon\Carbon;
 
 class Booking extends Model
 {
@@ -29,6 +29,9 @@ class Booking extends Model
         'service_details',
         'notes',
         'cancellation_reason',
+        'cancelled_at',
+        'confirmed_at',
+        'completed_at',
     ];
 
     protected $casts = [
@@ -42,76 +45,52 @@ class Booking extends Model
         'total_price' => 'decimal:2',
     ];
 
-    /**
-     * Get the user who made the booking.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Get the business for the booking.
-     */
-    public function business(): BelongsTo
+    public function business()
     {
         return $this->belongsTo(Business::class);
     }
 
-    /**
-     * Get the venue for the booking.
-     */
-    public function venue(): BelongsTo
+    public function venue()
     {
         return $this->belongsTo(Venue::class);
     }
 
-    /**
-     * Get the service for the booking.
-     */
-    public function service(): BelongsTo
+    public function service()
     {
         return $this->belongsTo(Service::class);
     }
 
-    /**
-     * Get the staff member assigned to the booking.
-     */
-    public function staff(): BelongsTo
+    public function staff()
     {
         return $this->belongsTo(User::class, 'staff_id');
     }
 
-    /**
-     * Check if the booking can be cancelled.
-     */
-    public function canBeCancelled(): bool
+    public function user()
     {
-        return in_array($this->status, ['pending', 'confirmed']) &&
-            $this->start_time->isFuture();
+        return $this->belongsTo(User::class);
     }
 
-    /**
-     * Check if the booking can be rescheduled.
-     */
-    public function canBeRescheduled(): bool
+    public function canBeCancelled()
     {
-        return in_array($this->status, ['pending', 'confirmed']) &&
-            $this->start_time->isFuture();
+        if ($this->status === 'cancelled') {
+            return false;
+        }
+
+        // Can't cancel if less than 24 hours before start time
+        return $this->start_time->diffInHours(now()) >= 24;
     }
 
-    /**
-     * Get the duration of the booking in minutes.
-     */
-    public function getDurationInMinutes(): int
+    public function canBeRescheduled()
     {
-        return $this->start_time->diffInMinutes($this->end_time);
+        if ($this->status === 'cancelled') {
+            return false;
+        }
+
+        // Can't reschedule if less than 24 hours before start time
+        return $this->start_time->diffInHours(now()) >= 24;
     }
 
-    /**
-     * Get the status label.
-     */
-    public function getStatusLabelAttribute(): string
+    public function getStatusLabelAttribute()
     {
         return match($this->status) {
             'pending' => 'Pending',
@@ -123,10 +102,7 @@ class Booking extends Model
         };
     }
 
-    /**
-     * Get the payment status label.
-     */
-    public function getPaymentStatusLabelAttribute(): string
+    public function getPaymentStatusLabelAttribute()
     {
         return match($this->payment_status) {
             'pending' => 'Pending',
@@ -134,5 +110,10 @@ class Booking extends Model
             'refunded' => 'Refunded',
             default => ucfirst($this->payment_status),
         };
+    }
+
+    public function getDurationInMinutes()
+    {
+        return $this->start_time->diffInMinutes($this->end_time);
     }
 }

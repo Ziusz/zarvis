@@ -201,15 +201,21 @@ class SettingController extends Controller
         ]);
 
         // Convert working_hours to opening_hours for database
-        $opening_hours = collect($validated['working_hours'])->map(function ($hours) {
-            return [
-                'open' => $hours['start'],
-                'close' => $hours['end'],
-                'closed' => !$hours['is_open'],
+        $opening_hours = [];
+        foreach ($validated['working_hours'] as $day => $hours) {
+            $opening_hours[$day] = [
+                'is_open' => $hours['is_open'],
+                'start' => $hours['start'],
+                'end' => $hours['end'],
             ];
-        })->toArray();
+        }
 
+        // Update both business and primary venue
         $business->update(['opening_hours' => $opening_hours]);
+        
+        if ($business->primaryVenue) {
+            $business->primaryVenue->update(['business_hours' => $opening_hours]);
+        }
 
         return back()->with('success', 'Working hours updated successfully!');
     }

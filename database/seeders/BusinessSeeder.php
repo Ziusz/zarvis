@@ -42,51 +42,37 @@ class BusinessSeeder extends Seeder
                     $categories->random(rand(1, 3))->pluck('id')->toArray()
                 );
 
-                // Create 1-3 venues for multi-location businesses
-                $venueCount = $business->is_single_location ? 1 : rand(1, 3);
-                
-                // Create venues
-                Venue::factory()
-                    ->count($venueCount)
-                    ->sequence(fn ($sequence) => [
-                        'business_id' => $business->id,
-                        'name' => $sequence->index === 0 && $business->is_single_location
-                            ? $business->name
-                            : $business->name . ' - ' . fake()->city(),
-                        'is_primary' => $sequence->index === 0,
-                    ])
-                    ->create();
+                // Create primary venue
+                $business->venues()->create([
+                    'name' => $business->name,
+                    'slug' => $business->slug,
+                    'description' => $business->description,
+                    'address' => $business->full_address,
+                    'contact_info' => [
+                        'phone' => $business->phone,
+                        'email' => $business->email,
+                    ],
+                    'business_hours' => $business->opening_hours,
+                    'status' => 'active',
+                    'is_primary' => true,
+                ]);
+
+                // Create additional venues for multi-location businesses (1-2 more)
+                if (!$business->is_single_location) {
+                    Venue::factory()
+                        ->count(rand(1, 2))
+                        ->create([
+                            'business_id' => $business->id,
+                            'is_primary' => false,
+                        ]);
+                }
 
                 // Create 3-8 services per business
                 Service::factory()
                     ->count(rand(3, 8))
-                    ->sequence(fn ($sequence) => [
+                    ->create([
                         'business_id' => $business->id,
-                        'category_id' => $categories->random()->id,
-                        'name' => fake()->randomElement([
-                            'Personal Training',
-                            'Group Fitness Class',
-                            'Yoga Session',
-                            'Swimming Lesson',
-                            'Tennis Coaching',
-                            'Basketball Training',
-                            'Soccer Practice',
-                            'Dance Class',
-                            'Martial Arts Training',
-                            'CrossFit Session',
-                            'Pilates Class',
-                            'Boxing Training',
-                            'Cycling Class',
-                            'Strength Training',
-                            'Cardio Session',
-                            'Stretching Class',
-                            'Meditation Session',
-                            'Sports Massage',
-                            'Nutrition Consultation',
-                            'Fitness Assessment',
-                        ]) . ' - ' . fake()->word() . ' ' . Str::random(4),
-                    ])
-                    ->create();
+                    ]);
 
                 // Assign 2-5 random staff members to the business
                 $business->staffMembers()->attach(

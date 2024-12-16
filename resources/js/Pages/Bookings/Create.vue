@@ -28,8 +28,8 @@ const MAX_CACHE_SIZE = 30;
 const timeSlotsCache = ref(new Map());
 
 const timePeriods = [
-    { id: 'morning', label: 'Morning', start: '06:00', end: '12:00' },
-    { id: 'afternoon', label: 'Afternoon', start: '12:00', end: '17:00' },
+    { id: 'morning', label: 'Morning', start: '06:00', end: '11:59' },
+    { id: 'afternoon', label: 'Afternoon', start: '12:00', end: '16:59' },
     { id: 'evening', label: 'Evening', start: '17:00', end: '23:59' }
 ];
 
@@ -67,8 +67,8 @@ const getTimeSlotsByPeriod = computed(() => {
         if (!periodConfig) return [];
 
         const result = timeSlots.value.filter(slot => {
-            const time = new Date(`2000-01-01T${slot.start_time}`).getTime();
-            return time >= periodConfig.startTime && time <= periodConfig.endTime;
+            const slotTime = new Date(`2000-01-01T${slot.start_time}`).getTime();
+            return slotTime >= periodConfig.startTime && slotTime <= periodConfig.endTime;
         });
 
         // Cache the result
@@ -108,45 +108,40 @@ const loadTimeSlots = async (date) => {
         
         loading.value = true;
         error.value = null;
-        selectedTimeSlot.value = null;
-        
+
         try {
-            const response = await axios.post(route('bookings.time-slots'), {
-                business_id: props.business.id,
-                service_id: props.service.id,
-                date: date,
-                staff_id: selectedStaff.value?.id,
+            const response = await axios.get(route('bookings.time-slots'), {
+                params: {
+                    business_id: props.business.id,
+                    service_id: props.service.id,
+                    date: date,
+                    staff_id: selectedStaff.value?.id,
+                },
             });
-            
-            const slots = response.data.timeSlots.map(slot => ({
+
+            timeSlots.value = response.data.slots.map(slot => ({
                 ...slot,
-                remaining_capacity: slot.capacity - slot.booked
+                formatted: `${formatTime(slot.start_time)} - ${formatTime(slot.end_time)}`,
             }));
 
-            maintainCacheSize();
-            timeSlotsCache.value.set(cacheKey, slots);
-            timeSlots.value = slots;
-            
-            // Update available dates if needed
-            if (slots.length > 0 && !availableDates.value.includes(date)) {
-                availableDates.value = [...availableDates.value, date];
-            } else if (slots.length === 0 && availableDates.value.includes(date)) {
-                availableDates.value = availableDates.value.filter(d => d !== date);
-            }
-            
-            if (slots.length === 0) {
-                error.value = 'No time slots available for this date.';
-            } else {
-                const availablePeriod = periodRanges.value.find(period => 
-                    getTimeSlotsByPeriod.value(period.id).length > 0
+            // Set initial period based on available slots
+            if (timeSlots.value.length > 0) {
+                const firstSlotTime = new Date(`2000-01-01T${timeSlots.value[0].start_time}`).getTime();
+                const period = periodRanges.value.find(p => 
+                    firstSlotTime >= p.startTime && firstSlotTime <= p.endTime
                 );
-                if (availablePeriod) {
-                    selectedPeriod.value = availablePeriod.id;
+                if (period) {
+                    selectedPeriod.value = period.id;
                 }
             }
+
+            // Cache the results
+            timeSlotsCache.value.set(cacheKey, timeSlots.value);
+            maintainCacheSize();
+
         } catch (e) {
+            error.value = 'Failed to load available time slots. Please try again.';
             console.error('Error loading time slots:', e);
-            error.value = e.response?.data?.message || 'Failed to load time slots. Please try again.';
         } finally {
             loading.value = false;
         }
@@ -180,7 +175,7 @@ watch(selectedTimeSlot, async (newTimeSlot) => {
             business_id: props.business.id,
             service_id: props.service.id,
             date: selectedDate.value,
-            time_slot_id: newTimeSlot.id,
+            time_slot_id: `${selectedDate.value}_${newTimeSlot.start_time}_${newTimeSlot.end_time}`,
         });
         
         availableStaff.value = response.data.staff;
@@ -225,10 +220,12 @@ const loadAvailableDates = async () => {
     
     loadingDates.value = true;
     try {
-        const response = await axios.post(route('bookings.available-dates'), {
-            business_id: props.business.id,
-            service_id: props.service.id,
-            staff_id: selectedStaff.value?.id,
+        const response = await axios.get(route('bookings.available-dates'), {
+            params: {
+                business_id: props.business.id,
+                service_id: props.service.id,
+                staff_id: selectedStaff.value?.id,
+            }
         });
         
         availableDates.value = response.data.dates;
@@ -342,8 +339,8 @@ watch(selectedStaff, loadAvailableDates);
                                     @click="selectedTimeSlot = slot"
                                 >
                                     {{ formatTime(slot.start_time) }}
-                                    <span v-if="slot.remaining_capacity" class="badge badge-sm ml-1">
-                                        {{ slot.remaining_capacity }}
+                                    <span v-if="slot.capacity - slot.booked > 0" class="badge badge-sm ml-1">
+                                        {{ slot.capacity - slot.booked }}
                                     </span>
                                 </button>
                             </div>

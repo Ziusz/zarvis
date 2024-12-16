@@ -102,30 +102,17 @@ class BusinessController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:businesses',
-            'description' => 'required|string',
-            'street_address' => 'required|string|max:255',
-            'city' => 'required|string|max:255',
-            'postal_code' => 'required|string|max:10',
+            'description' => 'nullable|string',
+            'street_address' => 'required|string',
+            'city' => 'required|string',
+            'postal_code' => 'required|string',
             'nip' => [
-                'nullable',
+                'required',
                 'string',
-                'size:10',
-                'regex:/^[0-9]{10}$/',
+                'regex:/^\d{10}$/',
                 function ($attribute, $value, $fail) {
-                    if ($value) {
-                        // NIP validation algorithm
-                        $weights = [6, 5, 7, 2, 3, 4, 5, 6, 7];
-                        $sum = 0;
-                        
-                        for ($i = 0; $i < 9; $i++) {
-                            $sum += $weights[$i] * intval($value[$i]);
-                        }
-                        
-                        $checksum = $sum % 11;
-                        if ($checksum !== intval($value[9])) {
-                            $fail('The NIP number is invalid.');
-                        }
+                    if (!$this->validateNIP($value)) {
+                        $fail('The NIP number is invalid.');
                     }
                 },
             ],
@@ -137,7 +124,7 @@ class BusinessController extends Controller
 
         $business = Business::create([
             'name' => $request->name,
-            'slug' => $request->slug,
+            'slug' => Str::slug($request->name),
             'description' => $request->description,
             'street_address' => $request->street_address,
             'city' => $request->city,
@@ -162,7 +149,7 @@ class BusinessController extends Controller
             'name' => $business->name,
             'slug' => $business->slug,
             'description' => $business->description,
-            'address' => $business->street_address . ', ' . $business->postal_code . ' ' . $business->city,
+            'address' => $business->full_address,
             'contact_info' => [
                 'phone' => $business->phone,
                 'email' => $business->email,
@@ -172,7 +159,32 @@ class BusinessController extends Controller
             'is_primary' => true,
         ]);
 
-        return redirect()->route('dashboard')->with('success', 'Business registered successfully!');
+        return redirect()->route('business.settings', $business)
+            ->with('success', 'Business created successfully!');
+    }
+
+    /**
+     * Validate NIP number using the checksum algorithm.
+     */
+    private function validateNIP(string $nip): bool
+    {
+        if (strlen($nip) !== 10) {
+            return false;
+        }
+
+        $weights = [6, 5, 7, 2, 3, 4, 5, 6, 7];
+        $sum = 0;
+
+        for ($i = 0; $i < 9; $i++) {
+            $sum += $nip[$i] * $weights[$i];
+        }
+
+        $checksum = $sum % 11;
+        if ($checksum === 10) {
+            $checksum = 0;
+        }
+
+        return $checksum === (int)$nip[9];
     }
 
     /**

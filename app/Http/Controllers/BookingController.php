@@ -2,17 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Booking;
 use App\Models\Business;
 use App\Models\Service;
-use App\Models\Booking;
 use App\Models\TimeSlot;
+use App\Services\TimeSlotService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class BookingController extends Controller
 {
+    protected TimeSlotService $timeSlotService;
+
+    public function __construct(TimeSlotService $timeSlotService)
+    {
+        $this->timeSlotService = $timeSlotService;
+    }
+
     /**
      * Show the booking creation form.
      */
@@ -56,39 +64,44 @@ class BookingController extends Controller
             'staff_id' => 'nullable|exists:users,id',
         ]);
 
-        $date = Carbon::parse($request->date)->startOfDay();
-        
-        $query = TimeSlot::query()
-            ->where('business_id', $request->business_id)
-            ->where('service_id', $request->service_id)
-            ->whereDate('date', $date)
-            ->where('status', 'available')
-            ->where(function ($query) {
-                $query->where('capacity', '>', DB::raw('COALESCE(booked, 0)'))
-                    ->orWhereNull('booked');
-            })
-            ->orderBy('start_time');
+        $business = Business::findOrFail($request->business_id);
+        $service = Service::findOrFail($request->service_id);
 
-        if ($request->staff_id) {
-            $query->where(function ($query) use ($request) {
-                $query->where('staff_id', $request->staff_id)
-                    ->orWhereNull('staff_id');
-            });
-        }
-
-        $timeSlots = $query->get()->map(fn ($slot) => [
-            'id' => $slot->id,
-            'start_time' => $slot->start_time->format('H:i'),
-            'end_time' => $slot->end_time->format('H:i'),
-            'capacity' => $slot->capacity,
-            'booked' => $slot->booked ?? 0,
-            'is_available' => $slot->isAvailable(),
-            'remaining_capacity' => $slot->getRemainingCapacity(),
+        \Log::info('Getting time slots', [
+            'business_id' => $business->id,
+            'service_id' => $service->id,
+            'date' => $request->date,
+            'staff_id' => $request->staff_id,
+            'business_hours' => $business->opening_hours,
+            'service_duration' => $service->duration,
         ]);
 
+        $slots = $this->timeSlotService->getAvailableTimeSlots($business, $service, $request->date);
+
+        \Log::info('Time slots response', [
+            'slots_count' => $slots->count(),
+            'first_slot' => $slots->first(),
+            'last_slot' => $slots->last(),
+        ]);
+
+        $formatted_slots = $slots->map(function ($slot) {
+            if (is_array($slot)) {
+                return $slot;
+            }
+            
+            return [
+                'id' => $slot->id,
+                'start_time' => $slot->start_time,
+                'end_time' => $slot->end_time,
+                'capacity' => $slot->capacity,
+                'booked' => $slot->booked,
+                'is_available' => $slot->is_available,
+                'status' => $slot->status,
+            ];
+        });
+
         return response()->json([
-            'timeSlots' => $timeSlots,
-            'date' => $date->toDateString(),
+            'slots' => $formatted_slots,
         ]);
     }
 
@@ -101,12 +114,31 @@ class BookingController extends Controller
             'business_id' => 'required|exists:businesses,id',
             'service_id' => 'required|exists:services,id',
             'date' => 'required|date|after_or_equal:today',
-            'time_slot_id' => 'required|exists:time_slots,id',
+            'time_slot_id' => 'required|string',
         ]);
 
         $business = Business::findOrFail($request->business_id);
         $service = Service::findOrFail($request->service_id);
-        $timeSlot = TimeSlot::findOrFail($request->time_slot_id);
+
+        // Parse the time slot ID
+        [$date, $start_time, $end_time] = explode('_', $request->time_slot_id);
+        
+        // Find or get the time slot
+        $timeSlot = TimeSlot::firstOrCreate(
+            [
+                'business_id' => $business->id,
+                'service_id' => $service->id,
+                'date' => $date,
+                'start_time' => $start_time,
+                'end_time' => $end_time,
+            ],
+            [
+                'venue_id' => $business->primaryVenue->id,
+                'capacity' => $service->capacity,
+                'booked' => 0,
+                'status' => 'available',
+            ]
+        );
         
         // First, try to get the staff member assigned to this time slot
         if ($timeSlot->staff_id) {
@@ -164,14 +196,33 @@ class BookingController extends Controller
         $request->validate([
             'business_id' => 'required|exists:businesses,id',
             'service_id' => 'required|exists:services,id',
-            'time_slot_id' => 'required|exists:time_slots,id',
+            'time_slot_id' => 'required|string',
             'staff_id' => 'nullable|exists:users,id',
             'participants' => 'required|integer|min:1',
         ]);
 
         $business = Business::findOrFail($request->business_id);
         $service = Service::findOrFail($request->service_id);
-        $timeSlot = TimeSlot::findOrFail($request->time_slot_id);
+
+        // Parse the time slot ID
+        [$date, $start_time, $end_time] = explode('_', $request->time_slot_id);
+
+        // Check if the time slot exists and is available
+        $timeSlot = TimeSlot::firstOrCreate(
+            [
+                'business_id' => $business->id,
+                'service_id' => $service->id,
+                'date' => $date,
+                'start_time' => $start_time,
+                'end_time' => $end_time,
+            ],
+            [
+                'venue_id' => $business->primaryVenue->id,
+                'capacity' => $service->capacity,
+                'booked' => 0,
+                'status' => 'available',
+            ]
+        );
 
         // Check if the time slot is still available
         if (!$timeSlot->isAvailable() || $timeSlot->getRemainingCapacity() < $request->participants) {
@@ -187,8 +238,8 @@ class BookingController extends Controller
             'venue_id' => $timeSlot->venue_id,
             'service_id' => $service->id,
             'staff_id' => $request->staff_id ?? $timeSlot->staff_id,
-            'start_time' => Carbon::parse($timeSlot->date)->setTimeFromTimeString($timeSlot->start_time),
-            'end_time' => Carbon::parse($timeSlot->date)->setTimeFromTimeString($timeSlot->end_time),
+            'start_time' => Carbon::parse($date . ' ' . $start_time),
+            'end_time' => Carbon::parse($date . ' ' . $end_time),
             'participants' => $request->participants,
             'total_price' => $service->price * $request->participants,
             'status' => 'pending',
@@ -387,37 +438,56 @@ class BookingController extends Controller
             'staff_id' => 'nullable|exists:users,id',
         ]);
 
-        $startDate = now()->startOfDay();
-        $endDate = now()->addMonths(6)->endOfDay();
+        $business = Business::findOrFail($request->business_id);
+        $service = Service::findOrFail($request->service_id);
         
-        $query = TimeSlot::query()
-            ->where('business_id', $request->business_id)
-            ->where('service_id', $request->service_id)
-            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
-            ->where('status', 'available')
-            ->where(function ($query) {
-                $query->where('capacity', '>', DB::raw('COALESCE(booked, 0)'))
-                    ->orWhereNull('booked');
-            });
+        // Get dates for the next 30 days
+        $dates = collect();
+        $startDate = now()->startOfDay();
+        $endDate = now()->addDays(30)->endOfDay();
 
-        if ($request->staff_id) {
-            $query->where(function ($query) use ($request) {
-                $query->where('staff_id', $request->staff_id)
-                    ->orWhereNull('staff_id');
-            });
+        // Get opening hours
+        $opening_hours = $business->opening_hours;
+        if (is_string($opening_hours)) {
+            try {
+                $opening_hours = json_decode($opening_hours, true);
+            } catch (\Exception $e) {
+                $opening_hours = [];
+            }
         }
 
-        $dates = $query->select('date')
-            ->distinct()
-            ->orderBy('date')
-            ->get()
-            ->pluck('date')
-            ->map(fn($date) => $date->format('Y-m-d'))
-            ->values()
-            ->all();
+        // Loop through each day
+        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
+            $day_of_week = strtolower($date->format('l'));
+            $day_hours = $opening_hours[$day_of_week] ?? null;
+
+            // Check if the business is open on this day
+            // Handle both old and new format
+            $is_open = false;
+            if ($day_hours) {
+                if (isset($day_hours['is_open'])) {
+                    // New format
+                    $is_open = $day_hours['is_open'];
+                } else {
+                    // Old format
+                    $is_open = !($day_hours['closed'] ?? true);
+                }
+            }
+
+            if ($is_open) {
+                $dates->push($date->format('Y-m-d'));
+            }
+        }
+
+        \Log::info('Available dates:', [
+            'business_id' => $business->id,
+            'service_id' => $service->id,
+            'opening_hours' => $opening_hours,
+            'dates' => $dates->values()->all(),
+        ]);
 
         return response()->json([
-            'dates' => $dates,
+            'dates' => $dates->values()->all(),
         ]);
     }
 }
