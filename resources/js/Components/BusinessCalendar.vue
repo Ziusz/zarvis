@@ -677,7 +677,9 @@ const isToday = (date) => {
 
 const handleTimeSlotClick = (hour, day = currentDate.value) => {
     const time = day.hour(hour);
-    openCreateModal(time);
+    newAppointment.value.date = time.format('YYYY-MM-DD');
+    newAppointment.value.time = time.format('HH:mm');
+    document.getElementById('create_appointment_modal').showModal();
 };
 
 // ... rest of your existing methods ...
