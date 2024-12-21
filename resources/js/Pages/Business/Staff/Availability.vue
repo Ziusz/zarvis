@@ -1,211 +1,211 @@
 <template>
-    <AppLayout>
-        <div class="container mx-auto px-4 py-8">
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <h1 class="text-2xl font-bold">
-                        {{ singleStaffMode ? `${staff[0].name}'s Availability` : 'Staff Availability' }}
-                    </h1>
-                    <p v-if="singleStaffMode" class="text-base-content/70 mt-1">
-                        Manage availability and working hours
-                    </p>
-                </div>
-                <div class="flex gap-2">
-                    <button 
-                        v-if="!singleStaffMode"
-                        class="btn btn-primary"
-                        @click="syncAllWithBusinessHours"
-                        :disabled="loading"
-                    >
-                        Sync All with Business Hours
-                    </button>
-                    <Link
-                        v-if="singleStaffMode"
-                        :href="route('business.staff.index')"
-                        class="btn"
-                    >
-                        Back to Staff List
-                    </Link>
-                </div>
+    <BusinessLayout>
+        <Head :title="singleStaffMode ? `${staff[0].name}'s Availability` : 'Staff Availability'" />
+        
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold">
+                    {{ singleStaffMode ? `${staff[0].name}'s Availability` : 'Staff Availability' }}
+                </h1>
+                <p v-if="singleStaffMode" class="text-base-content/70 mt-1">
+                    Manage availability and working hours
+                </p>
             </div>
+            <div class="flex gap-2">
+                <button 
+                    v-if="!singleStaffMode"
+                    class="btn btn-primary"
+                    @click="syncAllWithBusinessHours"
+                    :disabled="loading"
+                >
+                    Sync All with Business Hours
+                </button>
+                <Link
+                    v-if="singleStaffMode"
+                    :href="route('business.staff.index')"
+                    class="btn"
+                >
+                    Back to Staff List
+                </Link>
+            </div>
+        </div>
 
-            <!-- Staff List -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div v-for="member in staff" :key="member.id" class="card bg-base-100 shadow-xl">
-                    <div class="card-body">
-                        <div class="flex justify-between items-center">
-                            <h2 class="card-title">{{ member.name }}</h2>
-                            <div class="badge badge-secondary">{{ member.role }}</div>
-                        </div>
+        <!-- Staff List -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div v-for="member in staff" :key="member.id" class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <div class="flex justify-between items-center">
+                        <h2 class="card-title">{{ member.name }}</h2>
+                        <div class="badge badge-secondary">{{ member.role }}</div>
+                    </div>
 
-                        <!-- Calendar -->
-                        <div class="mt-4">
-                            <div class="flex justify-between items-center mb-4">
-                                <button 
-                                    class="btn btn-sm"
-                                    @click="previousWeek"
-                                >
-                                    ←
-                                </button>
-                                <span class="text-sm font-medium">
-                                    {{ formatDateRange(currentWeekStart, currentWeekEnd) }}
-                                </span>
-                                <button 
-                                    class="btn btn-sm"
-                                    @click="nextWeek"
-                                >
-                                    →
-                                </button>
-                            </div>
-
-                            <!-- Week View -->
-                            <div class="space-y-2">
-                                <div 
-                                    v-for="date in weekDates" 
-                                    :key="date.format('YYYY-MM-DD')"
-                                    class="flex items-center gap-4"
-                                >
-                                    <div class="w-24 text-sm">
-                                        {{ date.format('ddd, MMM D') }}
-                                    </div>
-                                    <div class="flex-1">
-                                        <div 
-                                            v-if="getAvailability(member.id, date)"
-                                            class="flex flex-wrap gap-2"
-                                        >
-                                            <div 
-                                                v-for="slot in getAvailability(member.id, date)"
-                                                :key="slot.id"
-                                                class="badge"
-                                                :class="{
-                                                    'badge-success': slot.is_available && slot.status === 'available',
-                                                    'badge-warning': slot.status === 'unavailable',
-                                                    'badge-error': slot.status === 'on-leave'
-                                                }"
-                                            >
-                                                {{ formatTimeRange(slot.start_time, slot.end_time) }}
-                                            </div>
-                                        </div>
-                                        <div v-else class="text-sm text-base-content/60">
-                                            No availability set
-                                        </div>
-                                    </div>
-                                    <button 
-                                        class="btn btn-sm btn-ghost"
-                                        @click="editAvailability(member, date)"
-                                    >
-                                        Edit
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card-actions justify-end mt-4">
+                    <!-- Calendar -->
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-4">
                             <button 
-                                class="btn btn-sm btn-outline"
-                                @click="syncWithBusinessHours(member)"
-                                :disabled="loading"
+                                class="btn btn-sm"
+                                @click="previousWeek"
                             >
-                                Sync with Business Hours
+                                ←
+                            </button>
+                            <span class="text-sm font-medium">
+                                {{ formatDateRange(currentWeekStart, currentWeekEnd) }}
+                            </span>
+                            <button 
+                                class="btn btn-sm"
+                                @click="nextWeek"
+                            >
+                                →
                             </button>
                         </div>
+
+                        <!-- Week View -->
+                        <div class="space-y-2">
+                            <div 
+                                v-for="date in weekDates" 
+                                :key="date.format('YYYY-MM-DD')"
+                                class="flex items-center gap-4"
+                            >
+                                <div class="w-24 text-sm">
+                                    {{ date.format('ddd, MMM D') }}
+                                </div>
+                                <div class="flex-1">
+                                    <div 
+                                        v-if="getAvailability(member.id, date)"
+                                        class="flex flex-wrap gap-2"
+                                    >
+                                        <div 
+                                            v-for="slot in getAvailability(member.id, date)"
+                                            :key="slot.id"
+                                            class="badge"
+                                            :class="{
+                                                'badge-success': slot.is_available && slot.status === 'available',
+                                                'badge-warning': slot.status === 'unavailable',
+                                                'badge-error': slot.status === 'on-leave'
+                                            }"
+                                        >
+                                            {{ formatTimeRange(slot.start_time, slot.end_time) }}
+                                        </div>
+                                    </div>
+                                    <div v-else class="text-sm text-base-content/60">
+                                        No availability set
+                                    </div>
+                                </div>
+                                <button 
+                                    class="btn btn-sm btn-ghost"
+                                    @click="editAvailability(member, date)"
+                                >
+                                    Edit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-actions justify-end mt-4">
+                        <button 
+                            class="btn btn-sm btn-outline"
+                            @click="syncWithBusinessHours(member)"
+                            :disabled="loading"
+                        >
+                            Sync with Business Hours
+                        </button>
                     </div>
                 </div>
             </div>
-
-            <!-- Edit Availability Modal -->
-            <dialog id="edit_availability_modal" class="modal">
-                <div class="modal-box">
-                    <h3 class="font-bold text-lg mb-4" v-if="selectedStaff && selectedDate">
-                        Edit Availability for {{ selectedStaff.name }}
-                        <div class="text-sm font-normal text-base-content/70">
-                            {{ selectedDate.format('dddd, MMMM D, YYYY') }}
-                        </div>
-                    </h3>
-
-                    <form @submit.prevent="saveAvailability" class="space-y-4">
-                        <div v-for="(slot, index) in editingSlots" :key="index" class="flex items-center gap-4">
-                            <div class="form-control flex-1">
-                                <label class="label">
-                                    <span class="label-text">Start Time</span>
-                                </label>
-                                <input 
-                                    type="time" 
-                                    v-model="slot.start_time"
-                                    class="input input-bordered"
-                                    required
-                                />
-                            </div>
-                            <div class="form-control flex-1">
-                                <label class="label">
-                                    <span class="label-text">End Time</span>
-                                </label>
-                                <input 
-                                    type="time" 
-                                    v-model="slot.end_time"
-                                    class="input input-bordered"
-                                    required
-                                />
-                            </div>
-                            <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">Status</span>
-                                </label>
-                                <select v-model="slot.status" class="select select-bordered">
-                                    <option value="available">Available</option>
-                                    <option value="unavailable">Unavailable</option>
-                                    <option value="on-leave">On Leave</option>
-                                </select>
-                            </div>
-                            <button 
-                                type="button"
-                                class="btn btn-ghost btn-sm"
-                                @click="removeSlot(index)"
-                                :disabled="editingSlots.length === 1"
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div class="flex justify-between">
-                            <button 
-                                type="button"
-                                class="btn btn-ghost btn-sm"
-                                @click="addSlot"
-                            >
-                                Add Time Slot
-                            </button>
-                            <div class="flex gap-2">
-                                <button 
-                                    type="button"
-                                    class="btn"
-                                    @click="closeModal"
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    type="submit"
-                                    class="btn btn-primary"
-                                    :disabled="loading"
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <form method="dialog" class="modal-backdrop">
-                    <button>close</button>
-                </form>
-            </dialog>
         </div>
-    </AppLayout>
+
+        <!-- Edit Availability Modal -->
+        <dialog id="edit_availability_modal" class="modal">
+            <div class="modal-box">
+                <h3 class="font-bold text-lg mb-4" v-if="selectedStaff && selectedDate">
+                    Edit Availability for {{ selectedStaff.name }}
+                    <div class="text-sm font-normal text-base-content/70">
+                        {{ selectedDate.format('dddd, MMMM D, YYYY') }}
+                    </div>
+                </h3>
+
+                <form @submit.prevent="saveAvailability" class="space-y-4">
+                    <div v-for="(slot, index) in editingSlots" :key="index" class="flex items-center gap-4">
+                        <div class="form-control flex-1">
+                            <label class="label">
+                                <span class="label-text">Start Time</span>
+                            </label>
+                            <input 
+                                type="time" 
+                                v-model="slot.start_time"
+                                class="input input-bordered"
+                                required
+                            />
+                        </div>
+                        <div class="form-control flex-1">
+                            <label class="label">
+                                <span class="label-text">End Time</span>
+                            </label>
+                            <input 
+                                type="time" 
+                                v-model="slot.end_time"
+                                class="input input-bordered"
+                                required
+                            />
+                        </div>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Status</span>
+                            </label>
+                            <select v-model="slot.status" class="select select-bordered">
+                                <option value="available">Available</option>
+                                <option value="unavailable">Unavailable</option>
+                                <option value="on-leave">On Leave</option>
+                            </select>
+                        </div>
+                        <button 
+                            type="button"
+                            class="btn btn-ghost btn-sm"
+                            @click="removeSlot(index)"
+                            :disabled="editingSlots.length === 1"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div class="flex justify-between">
+                        <button 
+                            type="button"
+                            class="btn btn-ghost btn-sm"
+                            @click="addSlot"
+                        >
+                            Add Time Slot
+                        </button>
+                        <div class="flex gap-2">
+                            <button 
+                                type="button"
+                                class="btn"
+                                @click="closeModal"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                type="submit"
+                                class="btn btn-primary"
+                                :disabled="loading"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <form method="dialog" class="modal-backdrop">
+                <button>close</button>
+            </form>
+        </dialog>
+    </BusinessLayout>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
-import AppLayout from '@/Layouts/AppLayout.vue';
+import BusinessLayout from '@/Layouts/BusinessLayout.vue';
 import dayjs from 'dayjs';
 
 const props = defineProps({

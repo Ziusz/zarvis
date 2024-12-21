@@ -1,7 +1,21 @@
 <template>
-    <SettingsLayout :business="business">
+    <BusinessLayout>
+        <Head title="Business Profile" />
+        
         <div class="space-y-6">
-            <div class="grid grid-cols-2 gap-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">Business Profile</h1>
+                <PrimaryButton 
+                    class="ml-4" 
+                    :class="{ 'opacity-25': processing }" 
+                    :disabled="processing"
+                    @click="updateProfile"
+                >
+                    Save Changes
+                </PrimaryButton>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Left Column -->
                 <div class="space-y-6">
                     <div>
@@ -38,46 +52,46 @@
                         <InputError :message="errors.street_address" class="mt-2" />
                     </div>
 
-                    <div>
-                        <InputLabel for="city" value="City" />
-                        <TextInput
-                            id="city"
-                            v-model="form.city"
-                            type="text"
-                            class="mt-1 block w-full"
-                        />
-                        <InputError :message="errors.city" class="mt-2" />
-                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <InputLabel for="city" value="City" />
+                            <TextInput
+                                id="city"
+                                v-model="form.city"
+                                type="text"
+                                class="mt-1 block w-full"
+                            />
+                            <InputError :message="errors.city" class="mt-2" />
+                        </div>
 
-                    <div>
-                        <InputLabel for="postal_code" value="Postal Code" />
-                        <TextInput
-                            id="postal_code"
-                            v-model="form.postal_code"
-                            type="text"
-                            class="mt-1 block w-full"
-                        />
-                        <InputError :message="errors.postal_code" class="mt-2" />
+                        <div>
+                            <InputLabel for="postal_code" value="Postal Code" />
+                            <TextInput
+                                id="postal_code"
+                                v-model="form.postal_code"
+                                type="text"
+                                class="mt-1 block w-full"
+                            />
+                            <InputError :message="errors.postal_code" class="mt-2" />
+                        </div>
                     </div>
                 </div>
 
                 <!-- Right Column -->
                 <div class="space-y-6">
                     <div>
-                        <InputLabel for="nip" value="NIP (Tax ID)" />
+                        <InputLabel for="nip" value="NIP" />
                         <TextInput
                             id="nip"
                             v-model="form.nip"
                             type="text"
-                            maxlength="10"
                             class="mt-1 block w-full"
-                            placeholder="0000000000"
                         />
                         <InputError :message="errors.nip" class="mt-2" />
                     </div>
 
                     <div>
-                        <InputLabel for="phone" value="Phone" />
+                        <InputLabel for="phone" value="Phone Number" />
                         <TextInput
                             id="phone"
                             v-model="form.phone"
@@ -115,8 +129,8 @@
                         <div class="mt-2">
                             <label class="block">
                                 <span class="sr-only">Choose logo</span>
-                                <input
-                                    type="file"
+                                <input 
+                                    type="file" 
                                     class="block w-full text-sm text-base-content
                                         file:mr-4 file:py-2 file:px-4
                                         file:rounded-full file:border-0
@@ -136,8 +150,8 @@
                         <div class="mt-2">
                             <label class="block">
                                 <span class="sr-only">Choose cover image</span>
-                                <input
-                                    type="file"
+                                <input 
+                                    type="file" 
                                     class="block w-full text-sm text-base-content
                                         file:mr-4 file:py-2 file:px-4
                                         file:rounded-full file:border-0
@@ -153,26 +167,15 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Save Button -->
-            <div class="mt-6 flex justify-end">
-                <PrimaryButton
-                    :class="{ 'opacity-25': processing }"
-                    :disabled="processing"
-                    @click="updateProfile"
-                >
-                    <span v-if="processing">Saving...</span>
-                    <span v-else>Save Changes</span>
-                </PrimaryButton>
-            </div>
         </div>
-    </SettingsLayout>
+    </BusinessLayout>
 </template>
 
 <script setup>
 import { ref } from 'vue';
+import { Head } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
-import SettingsLayout from '@/Layouts/SettingsLayout.vue';
+import BusinessLayout from '@/Layouts/BusinessLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -230,4 +233,5 @@ const updateProfile = () => {
             processing.value = false;
         },
     });
-};</script> 
+};
+</script> 

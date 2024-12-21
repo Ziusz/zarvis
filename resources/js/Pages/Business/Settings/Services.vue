@@ -1,9 +1,11 @@
 <template>
-    <SettingsLayout :business="business">
+    <BusinessLayout>
+        <Head title="Services Management" />
+        
         <div class="space-y-6">
             <!-- Header with Add Button -->
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-lg font-medium">Your Services</h3>
+                <h1 class="text-2xl font-bold">Services Management</h1>
                 <button 
                     class="btn btn-primary btn-sm gap-2"
                     @click="showAddModal = true"
@@ -173,13 +175,13 @@
                 </template>
             </Modal>
         </div>
-    </SettingsLayout>
+    </BusinessLayout>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
-import { router } from '@inertiajs/vue3';
-import SettingsLayout from '@/Layouts/SettingsLayout.vue';
+import { router, Head } from '@inertiajs/vue3';
+import BusinessLayout from '@/Layouts/BusinessLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';

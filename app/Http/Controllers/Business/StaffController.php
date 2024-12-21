@@ -28,12 +28,6 @@ class StaffController extends Controller
             }])
             ->firstOrFail();
 
-        dd([
-            'business_id' => $business->id,
-            'services' => $business->services->toArray(),
-            'raw_business' => $business->toArray()
-        ]);
-            
         // Get services from the eager loaded relationship
         $services = $business->services;
         
@@ -76,7 +70,7 @@ class StaffController extends Controller
             'services' => $mappedServices,
         ];
 
-        return Inertia::render('Business/Settings/Staff', [
+        return Inertia::render('Business/Staff/Index', [
             'business' => $businessData,
             'staff' => $staff,
         ]);
