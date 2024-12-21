@@ -65,6 +65,22 @@ Route::middleware([
             Route::put('bookings/{booking}/status', [BusinessDashboardController::class, 'updateBookingStatus'])
                 ->name('bookings.status.update');
 
+            // Calendar Management
+            Route::get('calendar', [App\Http\Controllers\Business\AppointmentController::class, 'calendar'])
+                ->name('calendar');
+            Route::get('appointments', [App\Http\Controllers\Business\AppointmentController::class, 'index'])
+                ->name('appointments.index');
+            Route::post('appointments', [App\Http\Controllers\Business\AppointmentController::class, 'store'])
+                ->name('appointments.store');
+            Route::put('appointments/{appointment}/move', [App\Http\Controllers\Business\AppointmentController::class, 'move'])
+                ->name('appointments.move');
+            Route::post('appointments/{appointment}/confirm', [App\Http\Controllers\Business\AppointmentController::class, 'confirm'])
+                ->name('appointments.confirm');
+            Route::post('appointments/{appointment}/cancel', [App\Http\Controllers\Business\AppointmentController::class, 'cancel'])
+                ->name('appointments.cancel');
+            Route::get('customers/search', [App\Http\Controllers\Business\AppointmentController::class, 'searchCustomers'])
+                ->name('customers.search');
+
             // Staff Availability Management
             Route::prefix('staff/availability')->name('staff.availability.')->group(function () {
                 Route::get('/', [App\Http\Controllers\Business\StaffAvailabilityController::class, 'index'])

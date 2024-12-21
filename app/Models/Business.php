@@ -146,6 +146,14 @@ class Business extends Model
     }
 
     /**
+     * Get all appointments for the business.
+     */
+    public function appointments(): HasMany
+    {
+        return $this->bookings();
+    }
+
+    /**
      * Get all staff availabilities for the business.
      */
     public function staffAvailabilities(): HasMany
