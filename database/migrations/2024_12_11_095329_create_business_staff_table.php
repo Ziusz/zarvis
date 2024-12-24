@@ -19,6 +19,7 @@ return new class extends Migration
             $table->json('specialties')->nullable();
             $table->text('experience')->nullable();
             $table->json('languages')->nullable();
+            $table->string('status')->default('active'); // active, inactive
             $table->timestamps();
 
             // Add unique constraint to prevent duplicate staff assignments

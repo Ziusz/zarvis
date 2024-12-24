@@ -183,4 +183,12 @@ class Business extends Model
     {
         return "{$this->street_address}, {$this->postal_code} {$this->city}";
     }
+
+    /**
+     * Get all clients for the business.
+     */
+    public function clients(): HasMany
+    {
+        return $this->hasMany(Client::class);
+    }
 } 

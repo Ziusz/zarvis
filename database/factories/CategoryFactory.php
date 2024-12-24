@@ -29,11 +29,11 @@ class CategoryFactory extends Factory
             'is_active' => $this->faker->boolean(90), // 90% chance of being active
             'is_featured' => $this->faker->boolean(20), // 20% chance of being featured
             'sort_order' => $this->faker->numberBetween(0, 100),
-            'metadata' => [
+            'metadata' => json_encode([
                 'seo_title' => $this->faker->sentence(),
-                'seo_description' => $this->faker->text(),
-                'seo_keywords' => implode(', ', $this->faker->words(5)),
-            ],
+                'seo_description' => $this->faker->paragraph(),
+                'seo_keywords' => $this->faker->words(5),
+            ]),
         ];
     }
 

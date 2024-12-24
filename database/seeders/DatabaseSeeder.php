@@ -27,9 +27,8 @@ class DatabaseSeeder extends Seeder
         // Run other seeders
         $this->call([
             CategorySeeder::class,
-            BusinessSeeder::class, // This will create staff members
+            BusinessSeeder::class,
             StaffAvailabilitySeeder::class,
-            TimeSlotSeeder::class,
         ]);
     }
 }

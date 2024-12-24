@@ -94,6 +94,16 @@ Route::middleware([
                 Route::post('/{staff}/bulk', [App\Http\Controllers\Business\StaffAvailabilityController::class, 'bulkUpdate'])
                     ->name('bulk-update');
             });
+
+            // Clients Management
+            Route::get('/clients', [App\Http\Controllers\Business\ClientController::class, 'index'])
+                ->name('clients.index');
+            Route::post('/clients', [App\Http\Controllers\Business\ClientController::class, 'store'])
+                ->name('clients.store');
+            Route::put('/clients/{client}', [App\Http\Controllers\Business\ClientController::class, 'update'])
+                ->name('clients.update');
+            Route::delete('/clients/{client}', [App\Http\Controllers\Business\ClientController::class, 'destroy'])
+                ->name('clients.destroy');
         });
 
     // Main Dashboard
