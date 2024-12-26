@@ -94,34 +94,62 @@ class DashboardController extends Controller
      */
     public function bookings(Request $request)
     {
-        $business = $request->user()->businesses()->firstOrFail();
+        $business = $request->user()->business;
         
-        $bookings = $business->bookings()
-            ->with(['service', 'staff', 'user'])
-            ->orderByDesc('start_time')
-            ->paginate(20)
-            ->through(fn ($booking) => [
-                'id' => $booking->id,
-                'start_time' => $booking->start_time,
-                'end_time' => $booking->end_time,
-                'status' => $booking->status,
-                'status_label' => $booking->status_label,
-                'service' => [
-                    'name' => $booking->service->name,
-                    'duration' => $booking->service->duration,
-                ],
-                'staff' => $booking->staff ? [
-                    'name' => $booking->staff->name,
-                    'avatar' => $booking->staff->profile_photo_url,
-                ] : null,
-                'customer' => [
-                    'name' => $booking->user->name,
-                    'avatar' => $booking->user->profile_photo_url,
-                ],
+        if (!$business) {
+            return Inertia::render('Business/Bookings/Index', [
+                'bookings' => [],
+                'services' => [],
+                'staff' => [],
             ]);
+        }
+
+        $bookings = $business->bookings()
+            ->with(['customer', 'service', 'staff'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($booking) {
+                return [
+                    'id' => $booking->id,
+                    'start_time' => $booking->start_time,
+                    'end_time' => $booking->end_time,
+                    'status' => $booking->status,
+                    'payment_status' => $booking->payment_status,
+                    'total_price' => $booking->total_price,
+                    'notes' => $booking->notes,
+                    'service' => $booking->service ? [
+                        'id' => $booking->service->id,
+                        'name' => $booking->service->name,
+                        'duration' => $booking->service->duration,
+                    ] : null,
+                    'staff' => $booking->staff ? [
+                        'id' => $booking->staff->id,
+                        'name' => $booking->staff->name,
+                        'avatar' => $booking->staff->avatar,
+                        'email' => $booking->staff->email,
+                    ] : null,
+                    'customer' => $booking->customer ? [
+                        'id' => $booking->customer->id,
+                        'name' => $booking->customer->name,
+                        'email' => $booking->customer->email,
+                        'phone' => $booking->customer->phone,
+                        'avatar' => $booking->customer->avatar,
+                    ] : null,
+                ];
+            });
+
+        $services = $business->services()
+            ->select('id', 'name')
+            ->get();
+
+        $staff = $business->staff()
+            ->select('id', 'name')
+            ->get();
 
         return Inertia::render('Business/Bookings/Index', [
             'bookings' => $bookings,
+            'services' => $services,
+            'staff' => $staff,
         ]);
     }
 
