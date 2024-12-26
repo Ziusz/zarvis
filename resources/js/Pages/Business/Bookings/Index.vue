@@ -68,8 +68,19 @@
                 </thead>
                 <tbody>
                     <tr v-if="!bookings || !Array.isArray(bookings) || bookings.length === 0">
-                        <td colspan="8" class="text-center py-8 text-base-content/70">
-                            No bookings found. Create your first booking by clicking the "Create Booking" button above.
+                        <td colspan="8">
+                            <EmptyState
+                                title="No bookings yet"
+                                description="Start managing your appointments by creating your first booking."
+                                :action-link="route('business.calendar')"
+                                action-label="Create Booking"
+                            >
+                                <template #icon>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </template>
+                            </EmptyState>
                         </td>
                     </tr>
                     <template v-else v-for="booking in bookings" :key="booking?.id || Math.random()">
@@ -267,6 +278,7 @@ import { router } from '@inertiajs/vue3';
 import BusinessLayout from '@/Layouts/BusinessLayout.vue';
 import dayjs from 'dayjs';
 import { debounce } from 'lodash';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     bookings: {

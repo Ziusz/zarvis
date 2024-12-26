@@ -186,6 +186,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import Modal from '@/Components/Modal.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     business: {
